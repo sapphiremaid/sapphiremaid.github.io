@@ -17,6 +17,7 @@ import { cycleRouteChoice } from "./core/route-choice.js";
 import { evaluateMysteryRouteUnlocks } from "./core/mystery-route-unlock.js";
 import { LiveRidgeRide, ridgeRideCompletionMessage } from "./core/ridge-ride-live.js";
 import { LiveTouchdownSettle } from "./core/touchdown-settle-live.js";
+import { createRecoveryFeedbackState, stepRecoveryFeedback } from "./core/recovery-feedback.js";
 import { applyIslandLandfall } from "./core/island-landfall-live.js";
 import { deriveLiveLandmarkInvestigation } from "./core/landmark-investigation-live.js";
 import { deriveLandmarkInvestigationResponse } from "./core/landmark-investigation-response.js";
@@ -94,6 +95,7 @@ const ridgeRide = new LiveRidgeRide();
 const touchdownSettle = new LiveTouchdownSettle();
 let ridgeRideTelemetry = ridgeRide.publicState();
 let touchdownSettleTelemetry = touchdownSettle.publicState();
+let recoveryFeedbackState = createRecoveryFeedbackState();
 let landmarkInvestigationTelemetry = INACTIVE_LANDMARK_INVESTIGATION;
 let lastCollision = { ...collisionResolver.telemetry };
 let dragon = null;
@@ -688,6 +690,13 @@ function frame(now) {
     controller.setEnvironmentPlanarCurrent(null);
   }
 
+  const recoveryFeedback = stepRecoveryFeedback(recoveryFeedbackState, {
+    explicitRecovery: recovering,
+    requiresRecovery: collision.requiresRecovery === true,
+    reducedMotion: Boolean(reducedMotionQuery?.matches),
+  });
+  recoveryFeedbackState = recoveryFeedback.state;
+
   if (!collision.requiresRecovery) {
     applyIslandLandfall({
       collision,
@@ -763,6 +772,9 @@ function frame(now) {
   ridgeRideTelemetry = ridgeRideResult.state;
   const ridgeRideMessage = ridgeRideCompletionMessage(ridgeRideResult);
   if (ridgeRideMessage) setRouteChoiceStatus(ridgeRideMessage);
+  if (recoveryFeedback.presentation.announcement) {
+    setRouteChoiceStatus(recoveryFeedback.presentation.announcement);
+  }
 
   if (dragon) {
     dragon.position.copy(position);
