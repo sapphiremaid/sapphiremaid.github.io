@@ -11,15 +11,76 @@
     #hud{position:fixed;z-index:2;left:14px;top:14px;max-width:460px;padding:10px 12px;background:#0b1118d9;border:1px solid #a7c0c866;border-radius:8px;line-height:1.45;pointer-events:none;backdrop-filter:blur(5px)}
     #state{font-weight:700;letter-spacing:.04em}
     #error{color:#ffd7d7;white-space:pre-wrap}
+    #greyblue-optional-status{margin-top:7px;font-size:11px;color:#d9e4e6}
+    #greyblue-flight-instruments{display:grid;gap:5px;margin-top:8px;padding-top:8px;border-top:1px solid #a7c0c84d}
+    #greyblue-flight-instruments>[data-greyblue-instrument-mode]{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:#c3d5d9}
+    .greyblue-instrument-grid{display:grid;grid-template-columns:repeat(3,minmax(72px,1fr));gap:7px}
+    .greyblue-instrument-grid span{display:grid;gap:1px}
+    .greyblue-instrument-grid b{font-size:18px;font-variant-numeric:tabular-nums;line-height:1.05}
+    .greyblue-instrument-grid small{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#b8ccd0}
+    #greyblue-flight-instruments [data-greyblue-instrument-caution]{font-size:12px;font-weight:800;letter-spacing:.13em}
+    #greyblue-flight-instruments[data-caution="STALL"] [data-greyblue-instrument-caution],#greyblue-flight-instruments[data-caution="GROUND"] [data-greyblue-instrument-caution],#greyblue-flight-instruments[data-caution="RECOVER"] [data-greyblue-instrument-caution]{font-size:13px}
+    #greyblue-landing-approach{display:grid;gap:2px;margin-top:9px;padding-top:8px;border-top:1px solid #a7c0c84d}
+    #greyblue-landing-approach[hidden]{display:none}
+    #greyblue-landing-approach [data-greyblue-landing-eyebrow]{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#c3d5d9}
+    #greyblue-landing-approach [data-greyblue-landing-title]{font-size:15px;font-weight:700}
+    #greyblue-landing-approach [data-greyblue-landing-status]{font-size:12px;color:#d4e2e5;font-variant-numeric:tabular-nums}
+    #greyblue-landing-approach [data-greyblue-landing-advice]{font-size:12px;font-weight:650}
+    #greyblue-landing-approach[data-phase="final"] [data-greyblue-landing-advice],#greyblue-landing-approach[data-phase="flare"] [data-greyblue-landing-advice]{font-size:13px}
+    #greyblue-destination-guidance{display:grid;gap:2px;margin-top:9px;padding-top:8px;border-top:1px solid #a7c0c84d}
+    #greyblue-destination-guidance[hidden]{display:none}
+    #greyblue-destination-guidance [data-greyblue-guidance-eyebrow]{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#c3d5d9}
+    #greyblue-destination-guidance-label{font-size:16px;line-height:1.25}
+    #greyblue-destination-guidance-status{font-size:12px;color:#d4e2e5}
+    #greyblue-destination-guidance[data-guidance-layout="compact"] #greyblue-destination-guidance-label{font-size:14px}
+    #greyblue-crossing-objective{display:grid;gap:3px;margin-top:9px;padding-top:8px;border-top:1px solid #a7c0c84d}
+    #greyblue-crossing-objective[hidden]{display:none}
+    #greyblue-crossing-objective [data-greyblue-crossing-eyebrow]{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#c3d5d9}
+    #greyblue-crossing-objective [data-greyblue-crossing-title]{font-size:15px;line-height:1.2}
+    #greyblue-crossing-objective [data-greyblue-crossing-status]{font-size:12px;color:#d4e2e5;font-variant-numeric:tabular-nums}
+    #greyblue-crossing-objective [data-greyblue-crossing-advice]{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#cbdcdf}
+    .greyblue-crossing-track{height:3px;overflow:hidden;border-radius:2px;background:#b8ccd033}
+    .greyblue-crossing-track i{display:block;width:100%;height:100%;transform:scaleX(0);transform-origin:left center;background:currentColor}
+    #greyblue-crossing-objective[data-phase="arrived"] [data-greyblue-crossing-title]{font-size:16px}
+    #greyblue-listening-pulse{display:grid;gap:2px;margin-top:9px;padding-top:8px;border-top:1px solid #a7c0c84d}
+    #greyblue-listening-pulse[hidden]{display:none}
+    #greyblue-listening-pulse [data-greyblue-listening-eyebrow]{font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:#c3d5d9}
+    #greyblue-listening-pulse [data-greyblue-listening-title]{font-size:15px;line-height:1.2}
+    #greyblue-listening-pulse [data-greyblue-listening-status]{font-size:12px;color:#d4e2e5;font-variant-numeric:tabular-nums}
+    #greyblue-listening-pulse[data-intensity="distant"] [data-greyblue-listening-title]{font-weight:550}
+    #greyblue-listening-pulse[data-found="false"] [data-greyblue-listening-title]{font-style:italic;font-weight:550}
+    #greyblue-exploration-journal{display:grid;gap:5px;margin-top:9px;padding-top:8px;border-top:1px solid #a7c0c84d}
+    #greyblue-exploration-journal[hidden]{display:none}
+    .greyblue-journal-heading{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#c3d5d9}
+    #greyblue-exploration-journal [data-greyblue-journal-objective]{font-size:14px;font-weight:650}
+    #greyblue-exploration-journal [data-greyblue-journal-context]{font-size:12px;color:#d4e2e5}
+    #greyblue-exploration-journal ol{margin:3px 0 0;padding-left:20px;font-size:12px;color:#cbdcdf}
+    #greyblue-landmark-encounter{display:grid;gap:2px;margin-top:9px;padding-top:8px;border-top:1px solid #a7c0c84d}
+    #greyblue-landmark-encounter[hidden]{display:none}
+    #greyblue-landmark-encounter [data-greyblue-encounter-eyebrow]{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#c3d5d9}
+    #greyblue-landmark-encounter [data-greyblue-encounter-title]{font-size:15px;line-height:1.2}
+    #greyblue-landmark-encounter [data-greyblue-encounter-status]{font-size:12px;color:#d4e2e5;font-variant-numeric:tabular-nums}
+    #greyblue-landmark-encounter [data-greyblue-encounter-prompt]{font-size:12px;font-weight:750;letter-spacing:.04em}
+    #greyblue-landmark-encounter [data-greyblue-encounter-reveal]{margin-top:4px;padding-top:6px;border-top:1px solid #a7c0c833;font-size:13px;line-height:1.4;color:#eef7f8}
+    #greyblue-landmark-encounter[data-available="true"] [data-greyblue-encounter-prompt]{font-size:13px}
+    #greyblue-approach-challenge{display:grid;gap:2px;margin-top:9px;padding-top:8px;border-top:1px solid #a7c0c84d}
+    #greyblue-approach-challenge[hidden]{display:none}
+    #greyblue-approach-challenge [data-greyblue-approach-eyebrow]{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:#c3d5d9}
+    #greyblue-approach-challenge [data-greyblue-approach-title]{font-size:15px;line-height:1.2}
+    #greyblue-approach-challenge [data-greyblue-approach-status]{font-size:12px;color:#d4e2e5}
+    #greyblue-approach-challenge[data-phase="succeeded"] [data-greyblue-approach-title]{font-size:16px}
+    [data-visually-hidden]{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+    @media (max-width:560px){#hud{left:8px;right:8px;top:8px;max-width:none}.greyblue-instrument-grid b{font-size:16px}#greyblue-landing-approach [data-greyblue-landing-advice]{font-size:11px}#greyblue-exploration-journal ol{max-height:84px;overflow:hidden}#greyblue-landmark-encounter [data-greyblue-encounter-reveal]{font-size:12px}}
   </style>
   <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"}}</script>
 </head>
 <body>
-  <div id="hud">
+  <div id="hud" data-greyblue-overlay>
     <div id="state">Waking the archipelago…</div>
-    <div>W/S power · A/D bank · Space/Shift climb · E takeoff/land · R recover</div>
+    <div>W/S power · A/D bank · Space/Shift climb · E takeoff/land · C choose route · Q listen · F investigate · R recover · J journal · X clear crossing · M sound</div>
+    <div id="route-choice-status" data-visually-hidden role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="error"></div>
   </div>
-  <script type="module" src="./src/app.js"></script>
+  <script type="module" src="./src/core/optional-surfaces-bootstrap.js"></script>
 </body>
 </html>

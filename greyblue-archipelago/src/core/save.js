@@ -1,10 +1,18 @@
+import { normalizeFlightResume } from "./flight-resume.js";
+
 const SAVE_KEY = "greyblue-archipelago-save-v1";
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 3;
+const SUPPORTED_VERSIONS = new Set([1, 2, CURRENT_VERSION]);
+const EXPLORATION_VERSION = 1;
 const DEFAULT_SPAWN = Object.freeze({ x: 0, y: 160, z: 0 });
 const WORLD_LIMIT = 24000;
 const ALTITUDE_MIN = -100;
 const ALTITUDE_MAX = 8000;
 const MAX_DISCOVERY_RECORDS = 2048;
+const EXPLORATION_EVENT_KINDS = new Set(["region-entered", "landmark-reached", "landmark-investigated", "landmark-flight-encounter", "route-completed", "approach-mastered", "roost-established", "regional-thread-recognized", "regional-flight-memory", "island-landed"]);
+const REGIONAL_FLIGHT_MEMORY_CLASSES = new Set(["wake", "ring", "hush", "weathering"]);
+let runtimeRecoveryCheckpoint = null;
+let holdRecoveryCheckpointOnce = false;
 
 export function saveGame(state, storage = localStorage, guidanceContext = null) {
   const discoveredRoutes = normalizeStringSet(state.discoveredRoutes);
@@ -12,18 +20,55 @@ export function saveGame(state, storage = localStorage, guidanceContext = null) 
     ? { ...guidanceContext, discoveredRoutes: guidanceContext.discoveredRoutes ?? discoveredRoutes }
     : null;
   const guidanceResult = recoverGuidanceForWorld(state.guidance, context);
+  const previousExploration = state.exploration === undefined
+    ? readStoredExploration(storage)
+    : null;
+  const previousSettings = readStoredSettings(storage);
+  const position = normalizePosition(state.position);
+  const previousPosition = readStoredPosition(storage);
+  if (holdRecoveryCheckpointOnce) {
+    holdRecoveryCheckpointOnce = false;
+  } else if (previousPosition && !samePosition(previousPosition, position)) {
+    runtimeRecoveryCheckpoint = previousPosition;
+  } else if (!runtimeRecoveryCheckpoint) {
+    runtimeRecoveryCheckpoint = previousPosition ?? position;
+  }
   const payload = {
     version: CURRENT_VERSION,
     savedAt: new Date().toISOString(),
     seed: Number.isInteger(state.seed) ? state.seed : 1337,
-    position: normalizePosition(state.position),
+    position,
+    recoveryCheckpoint: normalizePosition(runtimeRecoveryCheckpoint ?? position),
+    flight: normalizeFlightResume(state.flight),
     discovered: normalizeStringSet(state.discovered),
     discoveredRoutes,
     guidance: guidanceResult.guidance,
-    settings: isPlainObject(state.settings) ? state.settings : {},
+    exploration: normalizeExploration(state.exploration ?? previousExploration),
+    settings: {
+      ...previousSettings,
+      ...(isPlainObject(state.settings) ? state.settings : {}),
+    },
   };
   storage.setItem(SAVE_KEY, JSON.stringify(payload));
   return { ...payload, guidanceRecovery: guidanceResult.recovery };
+}
+
+export function saveSettingsPatch(settings, storage = localStorage) {
+  if (!isPlainObject(settings)) return false;
+  try {
+    const raw = storage.getItem(SAVE_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (!isPlainObject(parsed) || !SUPPORTED_VERSIONS.has(parsed.version)) return false;
+    parsed.settings = {
+      ...(isPlainObject(parsed.settings) ? parsed.settings : {}),
+      ...settings,
+    };
+    storage.setItem(SAVE_KEY, JSON.stringify(parsed));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function loadGame(storage = localStorage, guidanceContext = null) {
@@ -31,23 +76,45 @@ export function loadGame(storage = localStorage, guidanceContext = null) {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw);
-    if (!parsed || !isPlainObject(parsed) || ![1, CURRENT_VERSION].includes(parsed.version)) return null;
+    if (!parsed || !isPlainObject(parsed) || !SUPPORTED_VERSIONS.has(parsed.version)) return null;
     const discoveredRoutes = normalizeStringSet(parsed.discoveredRoutes);
     const context = guidanceContext
       ? { ...guidanceContext, discoveredRoutes: guidanceContext.discoveredRoutes ?? discoveredRoutes }
       : null;
     const guidanceResult = recoverGuidanceForWorld(parsed.guidance, context);
+    const hadExplorationField = Object.hasOwn(parsed, "exploration");
+    const hadFlightField = Object.hasOwn(parsed, "flight");
+    const exploration = normalizeExploration(parsed.exploration);
+    const flight = normalizeFlightResume(parsed.flight);
+    const position = normalizePosition(parsed.position);
+    runtimeRecoveryCheckpoint = isValidWorldPosition(parsed.recoveryCheckpoint)
+      ? normalizePosition(parsed.recoveryCheckpoint)
+      : position;
+    holdRecoveryCheckpointOnce = false;
     return {
       ...parsed,
       version: CURRENT_VERSION,
       seed: Number.isInteger(parsed.seed) ? parsed.seed : 1337,
-      position: normalizePosition(parsed.position),
+      position,
+      recoveryCheckpoint: { ...runtimeRecoveryCheckpoint },
+      flight,
+      flightRecovery: {
+        hadFlightField,
+        recoveredNeutral: !hadFlightField,
+      },
       discovered: normalizeStringSet(parsed.discovered),
       discoveredRoutes,
       guidance: guidanceResult.guidance,
       guidanceRecovery: guidanceResult.recovery,
+      exploration,
+      explorationRecovery: {
+        hadExplorationField,
+        restoredEventCount: exploration.events.length,
+        recoveredEmpty: !hadExplorationField || exploration.events.length === 0,
+      },
       settings: isPlainObject(parsed.settings) ? parsed.settings : {},
       recoveredCorruptPosition: !isValidWorldPosition(parsed.position),
+      recoveredCorruptCheckpoint: Object.hasOwn(parsed, "recoveryCheckpoint") && !isValidWorldPosition(parsed.recoveryCheckpoint),
       migratedFromVersion: parsed.version === CURRENT_VERSION ? null : parsed.version,
     };
   } catch {
@@ -57,15 +124,28 @@ export function loadGame(storage = localStorage, guidanceContext = null) {
 
 export function clearSave(storage = localStorage) {
   storage.removeItem(SAVE_KEY);
+  runtimeRecoveryCheckpoint = null;
+  holdRecoveryCheckpointOnce = false;
 }
 
 export function safeRespawn(state, spawn = DEFAULT_SPAWN) {
+  const earned = globalThis.__greyblueRoostRecovery;
+  const earnedTarget = earned?.source === "earned-roost" && isValidWorldPosition(earned?.position)
+    ? earned.position
+    : null;
+  const target = earnedTarget
+    ?? (isValidWorldPosition(runtimeRecoveryCheckpoint) ? runtimeRecoveryCheckpoint : spawn);
+  const position = normalizePosition(target);
+  runtimeRecoveryCheckpoint = { ...position };
+  holdRecoveryCheckpointOnce = true;
   return {
     ...state,
-    position: normalizePosition(spawn),
+    position,
     velocity: { x: 0, y: 0, z: 0 },
     airborne: true,
     landingRequested: false,
+    recoverySource: earnedTarget ? "earned-roost" : "checkpoint",
+    recoveryHeading: earnedTarget && Number.isFinite(earned?.heading) ? Number(earned.heading) : null,
   };
 }
 
@@ -159,6 +239,13 @@ function normalizePosition(position) {
   };
 }
 
+function samePosition(left, right) {
+  return Boolean(left) && Boolean(right)
+    && left.x === right.x
+    && left.y === right.y
+    && left.z === right.z;
+}
+
 function normalizeStringSet(values) {
   const source = values instanceof Set
     ? [...values]
@@ -190,6 +277,84 @@ function normalizeGuidance(guidance) {
     ? Math.max(0, Math.min(1, numericProgress))
     : 0;
   return { activeRouteId, progress };
+}
+
+function readStoredPosition(storage) {
+  try {
+    const raw = storage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return isPlainObject(parsed) && isValidWorldPosition(parsed.position)
+      ? normalizePosition(parsed.position)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredExploration(storage) {
+  try {
+    const raw = storage.getItem(SAVE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return isPlainObject(parsed) ? parsed.exploration ?? null : null;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredSettings(storage) {
+  try {
+    const raw = storage.getItem(SAVE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return isPlainObject(parsed) && isPlainObject(parsed.settings)
+      ? parsed.settings
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeExploration(exploration) {
+  const source = isPlainObject(exploration) && Array.isArray(exploration.events)
+    ? exploration.events
+    : [];
+  const byKey = new Map();
+  for (const candidate of source.slice(0, MAX_DISCOVERY_RECORDS)) {
+    if (!isPlainObject(candidate) || !EXPLORATION_EVENT_KINDS.has(candidate.kind)) continue;
+    const explicitId = typeof candidate.id === "string" ? candidate.id.trim() : "";
+    const landfallId = candidate.kind === "island-landed" && typeof candidate.islandId === "string"
+      ? candidate.islandId.trim()
+      : "";
+    const id = explicitId || landfallId;
+    if (!id) continue;
+    const key = `${candidate.kind}:${id}`;
+    const event = {
+      key,
+      kind: candidate.kind,
+      id,
+      occurredAt: Number.isFinite(candidate.occurredAt) && candidate.occurredAt >= 0
+        ? Math.floor(candidate.occurredAt)
+        : 0,
+    };
+    for (const field of ["regionId", "routeId", "landmarkId", "islandId", "corridorId", "landingZoneId", "encounterClass"]) {
+      const value = typeof candidate[field] === "string" ? candidate[field].trim() : "";
+      if (value) event[field] = value;
+    }
+    if (candidate.kind === "regional-flight-memory") {
+      const memoryClass = typeof candidate.memoryClass === "string" ? candidate.memoryClass.trim() : "";
+      if (!REGIONAL_FLIGHT_MEMORY_CLASSES.has(memoryClass)) continue;
+      event.memoryClass = memoryClass;
+    }
+    const previous = byKey.get(key);
+    if (!previous || event.occurredAt < previous.occurredAt) byKey.set(key, event);
+  }
+  return {
+    version: EXPLORATION_VERSION,
+    events: [...byKey.values()].sort((left, right) =>
+      left.occurredAt - right.occurredAt || left.key.localeCompare(right.key)),
+  };
 }
 
 function isPlainObject(value) {

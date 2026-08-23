@@ -6,11 +6,13 @@ const DEFAULT_BINDINGS = Object.freeze({
   climb: ["Space"],
   descend: ["ShiftLeft", "ShiftRight"],
   toggleFlight: ["KeyE"],
+  interact: ["KeyF"],
   recover: ["KeyR"],
   pause: ["Escape", "KeyP"],
 });
 
-const GAMEPAD_ACTIONS = Object.freeze(["toggleFlight", "recover", "pause"]);
+const GAMEPAD_ACTIONS = Object.freeze(["toggleFlight", "interact", "recover", "pause"]);
+const POINTER_LOOK_SCALE = 1 / 180;
 
 export class FlightInput {
   constructor({ bindings = DEFAULT_BINDINGS, deadzone = 0.14 } = {}) {
@@ -19,8 +21,9 @@ export class FlightInput {
     this.keys = new Set();
     this.edges = new Set();
     this.gamepad = null;
-    this.gamepadButtons = { toggleFlight: false, recover: false, pause: false };
+    this.gamepadButtons = { toggleFlight: false, interact: false, recover: false, pause: false };
     this.gamepadEdges = new Set();
+    this.pointerLook = { x: 0, y: 0 };
     this.enabled = true;
   }
 
@@ -34,10 +37,22 @@ export class FlightInput {
     this.keys.delete(code);
   }
 
+  pointerDelta(movementX = 0, movementY = 0) {
+    if (!this.enabled) return;
+    this.pointerLook.x = clamp(this.pointerLook.x + finiteOrZero(movementX) * POINTER_LOOK_SCALE, -1, 1);
+    this.pointerLook.y = clamp(this.pointerLook.y - finiteOrZero(movementY) * POINTER_LOOK_SCALE, -1, 1);
+  }
+
+  clearPointerLook() {
+    this.pointerLook.x = 0;
+    this.pointerLook.y = 0;
+  }
+
   setGamepad(gamepad) {
     const normalized = normalizeGamepad(gamepad, this.deadzone);
     const nextButtons = {
       toggleFlight: Boolean(normalized?.toggleFlight),
+      interact: Boolean(normalized?.interact),
       recover: Boolean(normalized?.recover),
       pause: Boolean(normalized?.pause),
     };
@@ -54,8 +69,9 @@ export class FlightInput {
     this.keys.clear();
     this.edges.clear();
     this.gamepad = null;
-    this.gamepadButtons = { toggleFlight: false, recover: false, pause: false };
+    this.gamepadButtons = { toggleFlight: false, interact: false, recover: false, pause: false };
     this.gamepadEdges.clear();
+    this.clearPointerLook();
   }
 
   setEnabled(enabled) {
@@ -71,12 +87,21 @@ export class FlightInput {
       climb: axis(this.keys, this.bindings.climb, this.bindings.descend),
     };
     const pad = this.gamepad || neutralSample();
+    const pointerLookX = this.pointerLook.x;
+    const pointerLookY = this.pointerLook.y;
+    this.clearPointerLook();
+    const lookX = dominantAxis(pointerLookX, pad.lookX);
+    const lookY = dominantAxis(pointerLookY, pad.lookY);
     return {
       throttle: dominantAxis(keyboard.throttle, pad.throttle),
       steer: dominantAxis(keyboard.steer, pad.steer),
       climb: dominantAxis(keyboard.climb, pad.climb),
+      lookX,
+      lookY,
       toggleFlight: this.#consumeEdge(this.bindings.toggleFlight)
         || this.gamepadEdges.delete("toggleFlight"),
+      interact: this.#consumeEdge(this.bindings.interact)
+        || this.gamepadEdges.delete("interact"),
       recover: this.#consumeEdge(this.bindings.recover)
         || this.gamepadEdges.delete("recover"),
       pause: this.#consumeEdge(this.bindings.pause)
@@ -99,18 +124,21 @@ export function normalizeGamepad(gamepad, deadzone = 0.14) {
   const buttons = Array.from(gamepad.buttons || [], buttonValue);
   const steer = deadzoneAxis(axes[0] || 0, deadzone);
   const climb = deadzoneAxis(-(axes[1] || 0), deadzone);
+  const lookX = deadzoneAxis(axes[2] || 0, deadzone);
+  const lookY = deadzoneAxis(-(axes[3] || 0), deadzone);
   const rightTrigger = buttons[7] || 0;
   const leftTrigger = buttons[6] || 0;
-  const triggerThrottle = deadzoneAxis(rightTrigger - leftTrigger, deadzone);
-  const stickThrottle = deadzoneAxis(-(axes[3] || 0), deadzone);
-  const throttle = triggerThrottle !== 0 ? triggerThrottle : stickThrottle;
-  const active = [steer, climb, throttle].some((value) => Math.abs(value) > 0.001)
+  const throttle = deadzoneAxis(rightTrigger - leftTrigger, deadzone);
+  const active = [steer, climb, throttle, lookX, lookY].some((value) => Math.abs(value) > 0.001)
     || buttons.some((value) => value > 0.5);
   return {
     throttle,
     steer,
     climb,
+    lookX,
+    lookY,
     toggleFlight: (buttons[0] || 0) > 0.5,
+    interact: (buttons[2] || 0) > 0.5,
     recover: (buttons[3] || 0) > 0.5,
     pause: (buttons[9] || 0) > 0.5,
     active,
@@ -126,8 +154,8 @@ function keyboardActive(sample) {
   return Math.abs(sample.throttle) + Math.abs(sample.steer) + Math.abs(sample.climb) > 0;
 }
 
-function dominantAxis(keyboard, gamepad) {
-  return clamp(Math.abs(keyboard) >= Math.abs(gamepad || 0) ? keyboard : gamepad || 0, -1, 1);
+function dominantAxis(primary, secondary) {
+  return clamp(Math.abs(primary) >= Math.abs(secondary || 0) ? primary : secondary || 0, -1, 1);
 }
 
 function deadzoneAxis(value, deadzone) {
@@ -152,7 +180,10 @@ function neutralSample() {
     throttle: 0,
     steer: 0,
     climb: 0,
+    lookX: 0,
+    lookY: 0,
     toggleFlight: false,
+    interact: false,
     recover: false,
     pause: false,
     active: false,

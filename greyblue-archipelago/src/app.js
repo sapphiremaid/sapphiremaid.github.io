@@ -3,11 +3,27 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { FlightController } from "./flight/controller.js";
 import { FlightInput } from "./flight/input.js";
 import { ChaseCameraRig } from "./flight/chase-camera.js";
+import { FreeLookChaseCamera } from "./flight/camera-free-look-integration.js";
 import { FlightCollisionResolver } from "./flight/collision.js";
 import { createIsleTerrainSampler } from "./flight/isle-terrain-sampler.js";
+import { deriveRidgeLift } from "./flight/ridge-lift.js";
 import { DragonRuntime } from "./dragon/runtime.js";
 import { buildArchipelago, updateActiveIslands } from "./world/archipelago.js";
+import { createIslandSurfaceSpatialIndex } from "./world/island-surface-spatial-index.js";
+import { composeLandingShelfHeight } from "./world/landing-shelf-surface.js";
+import { regionalAirCurrentForRegion } from "./world/regional-air-current-metadata.js";
 import { selectRouteGuidance } from "./core/route-guidance.js";
+import { cycleRouteChoice } from "./core/route-choice.js";
+import { evaluateMysteryRouteUnlocks } from "./core/mystery-route-unlock.js";
+import { LiveRidgeRide, ridgeRideCompletionMessage } from "./core/ridge-ride-live.js";
+import { LiveTouchdownSettle } from "./core/touchdown-settle-live.js";
+import { createRecoveryFeedbackState, stepRecoveryFeedback } from "./core/recovery-feedback.js";
+import { applyIslandLandfall } from "./core/island-landfall-live.js";
+import { deriveLiveLandmarkInvestigation } from "./core/landmark-investigation-live.js";
+import { deriveLandmarkInvestigationResponse } from "./core/landmark-investigation-response.js";
+import { createStreamedIslandPool } from "./core/streamed-island-pool.js";
+import { createStreamedIslandThreeAdapter } from "./core/streamed-island-three-adapter.js";
+import { applyFlightResume, captureFlightResume } from "./core/flight-resume-runtime.js";
 import { loadGame, saveGame, safeRespawn } from "./core/save.js";
 
 const ASSETS = Object.freeze({
@@ -16,6 +32,10 @@ const ASSETS = Object.freeze({
 });
 const STREAMING_RANGES = Object.freeze({ activateRange: 2400, deactivateRange: 3000 });
 const FALLBACK_SPAWN = Object.freeze({ x: 0, y: 160, z: 0 });
+const ROUTE_CHOICE_RADIUS = 320;
+const CROSSING_COMMIT_PROGRESS = 0.1;
+const RIDGE_LIFT_PROBE_DISTANCE = 46;
+const INACTIVE_LANDMARK_INVESTIGATION = Object.freeze({ available: false, prompt: null });
 const DEFAULT_FOG = Object.freeze({
   color: "#71848b",
   near: 120,
@@ -27,6 +47,7 @@ const DEFAULT_FOG = Object.freeze({
 
 const stateLine = document.querySelector("#state");
 const errorLine = document.querySelector("#error");
+const routeChoiceStatus = document.querySelector("#route-choice-status");
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(DEFAULT_FOG.color);
 scene.fog = new THREE.FogExp2(DEFAULT_FOG.color, DEFAULT_FOG.density);
@@ -37,6 +58,9 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 document.body.appendChild(renderer.domElement);
+const reducedMotionQuery = typeof matchMedia === "function"
+  ? matchMedia("(prefers-reduced-motion: reduce)")
+  : null;
 
 scene.add(new THREE.HemisphereLight(0xbfd8df, 0x202a28, 2.4));
 const sun = new THREE.DirectionalLight(0xffefd0, 3.2);
@@ -47,8 +71,12 @@ scene.add(sun);
 const save = loadGame();
 const seed = Number.isInteger(save?.seed) ? save.seed : 1337;
 const world = buildArchipelago({ seed, count: 64, radius: 11000, minGap: 390 });
+const islandSurfaceIndex = createIslandSurfaceSpatialIndex(world.islands);
 const discovered = new Set(save?.discovered || []);
 const discoveredRoutes = new Set(save?.discoveredRoutes || []);
+const mysteryExploration = {
+  events: Array.isArray(save?.exploration?.events) ? [...save.exploration.events] : [],
+};
 const position = new THREE.Vector3(
   save?.position?.x ?? FALLBACK_SPAWN.x,
   save?.position?.y ?? FALLBACK_SPAWN.y,
@@ -56,11 +84,19 @@ const position = new THREE.Vector3(
 );
 
 const controller = new FlightController();
-controller.airborne = true;
+applyFlightResume(controller, save?.flight);
 const flightInput = new FlightInput();
-const chaseCamera = new ChaseCameraRig({ distance: save?.settings?.cameraDistance ?? 24 });
+const chaseCamera = new FreeLookChaseCamera(
+  new ChaseCameraRig({ distance: save?.settings?.cameraDistance ?? 24 }),
+);
 const collisionResolver = new FlightCollisionResolver();
 collisionResolver.reset(position);
+const ridgeRide = new LiveRidgeRide();
+const touchdownSettle = new LiveTouchdownSettle();
+let ridgeRideTelemetry = ridgeRide.publicState();
+let touchdownSettleTelemetry = touchdownSettle.publicState();
+let recoveryFeedbackState = createRecoveryFeedbackState();
+let landmarkInvestigationTelemetry = INACTIVE_LANDMARK_INVESTIGATION;
 let lastCollision = { ...collisionResolver.telemetry };
 let dragon = null;
 let dragonRuntime = null;
@@ -69,6 +105,7 @@ let heroIsle = null;
 let heroBounds = null;
 let heroTerrain = null;
 let paused = false;
+let cameraPointerId = null;
 let lastCameraState = null;
 let lastSaveAt = performance.now();
 let lastFrameAt = performance.now();
@@ -77,48 +114,32 @@ let currentRegion = null;
 let currentFogProfile = { ...DEFAULT_FOG };
 let currentRouteGuidance = null;
 let preferredRouteId = save?.guidance?.activeRouteId || null;
+let activeCrossingRouteId = null;
+let routeChoiceTelemetry = Object.freeze({ available: false, reason: "not-at-departure", preferredRouteId });
+let mysteryRouteTelemetry = Object.freeze({
+  unlockedRouteIds: [],
+  regionProgress: [],
+  investigationCount: 0,
+  lastUnlockedRouteId: null,
+});
 const islandMeshes = new Map();
+const streamedIslandThreeAdapter = createStreamedIslandThreeAdapter({ THREE, scene, islandMeshes });
+const streamedIslandPresentation = createStreamedIslandPool({
+  cap: 12,
+  create: streamedIslandThreeAdapter.create,
+  reset: streamedIslandThreeAdapter.reset,
+  dispose: streamedIslandThreeAdapter.dispose,
+});
 const loader = new GLTFLoader();
 
 function loadGltf(url) {
   return new Promise((resolve, reject) => loader.load(url, resolve, undefined, reject));
 }
 
-function makeIslandMesh(island) {
-  const geometry = new THREE.ConeGeometry(110 * island.scale, island.height, 9, 3);
-  geometry.translate(0, -island.height * 0.42, 0);
-  const material = new THREE.MeshStandardMaterial({
-    color: island.landmark ? 0x607f74 : 0x536e64,
-    roughness: 0.96,
-    metalness: 0,
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(island.x, 0, island.z);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  mesh.userData.island = island;
-  return mesh;
-}
-
 function updateStreaming() {
   const activeIds = new Set(islandMeshes.keys());
   const active = updateActiveIslands(world, position, activeIds, STREAMING_RANGES);
-  const wanted = new Set(active.map((island) => island.id));
-  for (const island of active) {
-    if (!islandMeshes.has(island.id)) {
-      const mesh = makeIslandMesh(island);
-      islandMeshes.set(island.id, mesh);
-      scene.add(mesh);
-    }
-  }
-  for (const [id, mesh] of islandMeshes) {
-    if (!wanted.has(id)) {
-      scene.remove(mesh);
-      mesh.geometry.dispose();
-      mesh.material.dispose();
-      islandMeshes.delete(id);
-    }
-  }
+  streamedIslandPresentation.sync(active);
   return active;
 }
 
@@ -151,12 +172,18 @@ function nearestLandingZone(island) {
 
 function sampleSurfaceAt(x, z) {
   let result = { height: 0, surface: "water", id: "greyblue-ocean" };
-  for (const island of world.islands) {
+  for (const island of islandSurfaceIndex.query(x, z)) {
     const distance = Math.hypot(x - island.x, z - island.z);
     const radius = 110 * island.scale;
     if (distance < radius) {
       const normalized = 1 - distance / radius;
-      const height = island.height * normalized * normalized * 0.58;
+      const baseHeight = island.height * normalized * normalized * 0.58;
+      const height = composeLandingShelfHeight({
+        baseHeight,
+        x,
+        z,
+        landingZones: island.landingZones,
+      });
       if (result.surface === "water" || height > result.height) {
         result = { height, surface: "terrain", id: island.id };
       }
@@ -181,6 +208,34 @@ function terrainHeightAt(x, z) {
   return sampleSurfaceAt(x, z).height;
 }
 
+function deriveLiveRidgeLift() {
+  const speed = Math.hypot(controller.velocity.x, controller.velocity.z);
+  const current = sampleSurfaceAt(position.x, position.z);
+  const forwardX = Math.sin(controller.yaw);
+  const forwardZ = Math.cos(controller.yaw);
+  const ahead = sampleSurfaceAt(
+    position.x + forwardX * RIDGE_LIFT_PROBE_DISTANCE,
+    position.z + forwardZ * RIDGE_LIFT_PROBE_DISTANCE,
+  );
+  const usableTerrain = current.surface === "terrain" && ahead.surface === "terrain";
+  return deriveRidgeLift({
+    speed,
+    clearance: usableTerrain ? position.y - current.height : Number.POSITIVE_INFINITY,
+    terrainRise: usableTerrain ? ahead.height - current.height : 0,
+    airborne: controller.airborne,
+    grounded: lastCollision.grounded,
+    landing: controller.landingRequested,
+    recovering: lastCollision.requiresRecovery,
+    restoring: false,
+  });
+}
+
+function clearCameraLook() {
+  cameraPointerId = null;
+  flightInput.clearPointerLook();
+  chaseCamera.resetLook();
+}
+
 function recover() {
   const recovered = safeRespawn({
     seed,
@@ -199,9 +254,17 @@ function recover() {
   Object.assign(controller.velocity, recovered.velocity);
   controller.airborne = recovered.airborne;
   controller.landingRequested = recovered.landingRequested;
+  controller.setEnvironmentVerticalBias(0);
+  controller.setEnvironmentPlanarCurrent(null);
   collisionResolver.reset(recovered.position);
   lastCollision = { ...collisionResolver.telemetry };
+  ridgeRideTelemetry = ridgeRide.interrupt();
+  touchdownSettleTelemetry = touchdownSettle.interrupt();
+  landmarkInvestigationTelemetry = INACTIVE_LANDMARK_INVESTIGATION;
   chaseCamera.snapTo(position, controller.yaw);
+  cameraPointerId = null;
+  flightInput.clearPointerLook();
+  activeCrossingRouteId = null;
   persist();
 }
 
@@ -209,8 +272,10 @@ function persist() {
   saveGame({
     seed,
     position: { x: position.x, y: position.y, z: position.z },
+    flight: captureFlightResume(controller),
     discovered,
     discoveredRoutes,
+    exploration: mysteryExploration,
     guidance: {
       activeRouteId: preferredRouteId,
       progress: currentRouteGuidance?.progress ?? 0,
@@ -223,6 +288,14 @@ function persist() {
 function setPaused(nextPaused, now) {
   paused = Boolean(nextPaused);
   flightInput.clear();
+  clearCameraLook();
+  controller.setEnvironmentVerticalBias(0);
+  controller.setEnvironmentPlanarCurrent(null);
+  if (paused) {
+    ridgeRideTelemetry = ridgeRide.interrupt();
+    touchdownSettleTelemetry = touchdownSettle.interrupt();
+    landmarkInvestigationTelemetry = INACTIVE_LANDMARK_INVESTIGATION;
+  }
   lastFrameAt = now;
   if (paused) persist();
 }
@@ -295,6 +368,102 @@ function updateRouteGuidance(proximity) {
   return currentRouteGuidance;
 }
 
+function setRouteChoiceStatus(message) {
+  if (routeChoiceStatus) routeChoiceStatus.textContent = String(message || "").slice(0, 180);
+}
+
+function applyMysteryRouteUnlock(liveInvestigation = null) {
+  let investigationAdded = false;
+  if (liveInvestigation?.landmarkId && liveInvestigation?.regionId) {
+    const duplicate = mysteryExploration.events.some((event) =>
+      event?.kind === "landmark-investigated" && event.landmarkId === liveInvestigation.landmarkId);
+    if (!duplicate) {
+      mysteryExploration.events.push({
+        kind: "landmark-investigated",
+        landmarkId: liveInvestigation.landmarkId,
+        regionId: liveInvestigation.regionId,
+      });
+      investigationAdded = true;
+    }
+  }
+
+  const result = evaluateMysteryRouteUnlocks({
+    world,
+    exploration: mysteryExploration,
+    discoveredIslandIds: discovered,
+    discoveredRouteIds: discoveredRoutes,
+    liveInvestigation,
+  });
+  const unlockedRouteIds = [];
+  for (const unlock of result.unlocks) {
+    if (discoveredRoutes.has(unlock.routeId)) continue;
+    discoveredRoutes.add(unlock.routeId);
+    unlockedRouteIds.push(unlock.routeId);
+  }
+
+  mysteryRouteTelemetry = Object.freeze({
+    unlockedRouteIds: Object.freeze(unlockedRouteIds),
+    regionProgress: result.regionProgress,
+    investigationCount: result.investigationCount,
+    lastUnlockedRouteId: unlockedRouteIds.at(-1) ?? mysteryRouteTelemetry.lastUnlockedRouteId ?? null,
+  });
+
+  if (!unlockedRouteIds.length) {
+    if (investigationAdded) persist();
+    return false;
+  }
+  const proximity = nearestIsland();
+  updateRouteGuidance(proximity);
+  persist();
+  const route = world.routes.find((candidate) => candidate.id === unlockedRouteIds[0]);
+  const destination = route
+    ? world.islands.find((island) => island.id === route.toIslandId || island.id === route.fromIslandId)
+    : null;
+  setRouteChoiceStatus(destination?.name
+    ? `A hidden crossing resonates into view near ${destination.name}.`
+    : "A hidden crossing resonates into view.");
+  return true;
+}
+
+function chooseNextRoute() {
+  const proximity = nearestIsland();
+  if (!proximity || proximity.distance > ROUTE_CHOICE_RADIUS) {
+    routeChoiceTelemetry = Object.freeze({ available: false, reason: "not-at-departure", preferredRouteId });
+    setRouteChoiceStatus("Route choice is available near a discovered departure.");
+    return false;
+  }
+
+  const result = cycleRouteChoice({
+    world,
+    islandId: proximity.island.id,
+    discoveredRouteIds: discoveredRoutes,
+    preferredRouteId,
+    activeCrossingRouteId,
+  });
+  routeChoiceTelemetry = Object.freeze({
+    available: result.choices.length > 0,
+    reason: result.reason,
+    preferredRouteId: result.preferredRouteId,
+    choiceCount: result.choices.length,
+    departureIslandId: proximity.island.id,
+  });
+
+  if (result.reason === "active-crossing") {
+    setRouteChoiceStatus("Finish or clear the active crossing before choosing another route.");
+    return false;
+  }
+  if (result.reason === "no-eligible-routes") {
+    setRouteChoiceStatus("No discovered crossing leaves this island yet.");
+    return false;
+  }
+
+  preferredRouteId = result.preferredRouteId;
+  updateRouteGuidance(proximity);
+  persist();
+  setRouteChoiceStatus(result.destinationName ? `Route set for ${result.destinationName}.` : "Route selected.");
+  return result.changed;
+}
+
 function normalizeAngle(angle) {
   return Math.atan2(Math.sin(angle), Math.cos(angle));
 }
@@ -319,21 +488,90 @@ function publishPausedState() {
     collision: lastCollision,
     surface,
     camera: lastCameraState,
+    cameraLook: lastCameraState?.freeLook || Object.freeze({ active: false, direction: null }),
+    ridgeRide: ridgeRideTelemetry,
+    touchdownSettle: touchdownSettleTelemetry,
+    landmarkInvestigation: landmarkInvestigationTelemetry,
     routeGuidance: currentRouteGuidance,
     guidancePreference: preferredRouteId,
+    routeChoice: routeChoiceTelemetry,
+    mysteryRoutes: mysteryRouteTelemetry,
     world: {
       ...(globalThis.__greyblueState?.world || {}),
+      streamingPresentation: streamedIslandPresentation.telemetry(),
       heroTerrain: heroTerrain?.telemetry || null,
     },
   };
 }
 
 addEventListener("keydown", (event) => {
+  if (!event.defaultPrevented && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    if (event.code === "KeyC") chooseNextRoute();
+    if (event.code === "KeyX") {
+      activeCrossingRouteId = null;
+      routeChoiceTelemetry = Object.freeze({ ...routeChoiceTelemetry, reason: "crossing-cleared" });
+    }
+  }
   flightInput.keyDown(event.code, event.repeat);
 });
+addEventListener("greyblue:route-completed", () => {
+  activeCrossingRouteId = null;
+  routeChoiceTelemetry = Object.freeze({ ...routeChoiceTelemetry, reason: "crossing-completed" });
+});
+addEventListener("greyblue:landmark-investigated", (event) => {
+  const detail = event?.detail ?? null;
+  const response = deriveLandmarkInvestigationResponse({
+    event: detail,
+    completed: true,
+    islands: world.islands,
+    discoveredIslandIds: discovered,
+    paused,
+    recovering: Boolean(lastCollision.requiresRecovery),
+    restoring: false,
+    crossing: Boolean(activeCrossingRouteId),
+  });
+  const unlockedRoute = applyMysteryRouteUnlock(detail);
+  if (!unlockedRoute && response.active) setRouteChoiceStatus(response.text);
+});
 addEventListener("keyup", (event) => flightInput.keyUp(event.code));
-addEventListener("blur", () => flightInput.clear());
-addEventListener("beforeunload", persist);
+addEventListener("blur", () => {
+  flightInput.clear();
+  clearCameraLook();
+  ridgeRideTelemetry = ridgeRide.interrupt();
+  touchdownSettleTelemetry = touchdownSettle.interrupt();
+  landmarkInvestigationTelemetry = INACTIVE_LANDMARK_INVESTIGATION;
+});
+renderer.domElement.addEventListener("pointerdown", (event) => {
+  if (paused || event.button !== 0 || cameraPointerId !== null) return;
+  cameraPointerId = event.pointerId;
+  flightInput.clearPointerLook();
+  renderer.domElement.setPointerCapture?.(event.pointerId);
+  event.preventDefault();
+});
+renderer.domElement.addEventListener("pointermove", (event) => {
+  if (cameraPointerId !== event.pointerId) return;
+  flightInput.pointerDelta(event.movementX, event.movementY);
+  event.preventDefault();
+});
+const finishPointerLook = (event) => {
+  if (cameraPointerId !== event.pointerId) return;
+  if (renderer.domElement.hasPointerCapture?.(event.pointerId)) {
+    renderer.domElement.releasePointerCapture?.(event.pointerId);
+  }
+  cameraPointerId = null;
+  flightInput.clearPointerLook();
+};
+renderer.domElement.addEventListener("pointerup", finishPointerLook);
+renderer.domElement.addEventListener("pointercancel", finishPointerLook);
+renderer.domElement.addEventListener("lostpointercapture", (event) => {
+  if (cameraPointerId !== event.pointerId) return;
+  cameraPointerId = null;
+  flightInput.clearPointerLook();
+});
+addEventListener("beforeunload", () => {
+  streamedIslandPresentation.teardown();
+  persist();
+});
 addEventListener("resize", () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
@@ -373,6 +611,7 @@ async function boot() {
   dragonRuntime.bindClips(dragonGltf.animations);
   collisionResolver.reset(position);
   lastCollision = { ...collisionResolver.telemetry };
+  applyMysteryRouteUnlock();
 
   stateLine.textContent = "FLIGHT · Greyblue Archipelago";
   requestAnimationFrame(frame);
@@ -400,9 +639,13 @@ function frame(now) {
     renderer.render(scene, camera);
     return;
   }
-  if (input.recover) recover();
+  const recovering = Boolean(input.recover);
+  if (recovering) recover();
 
   const previous = { x: position.x, y: position.y, z: position.z };
+  const ridgeLift = deriveLiveRidgeLift();
+  controller.setEnvironmentVerticalBias(ridgeLift.verticalBias);
+  controller.setEnvironmentPlanarCurrent(regionalAirCurrentForRegion(currentRegion?.id));
   const flight = controller.step(input, dt);
   const proposed = {
     x: previous.x + flight.velocity.x * dt,
@@ -421,6 +664,16 @@ function frame(now) {
   Object.assign(controller.velocity, collision.velocity);
   lastCollision = { ...collision.telemetry };
 
+  const touchdownSettleResult = touchdownSettle.update({
+    collision,
+    airborne: controller.airborne,
+    recovering: recovering || Boolean(collision.requiresRecovery),
+    reducedMotion: Boolean(reducedMotionQuery?.matches),
+    dt,
+  });
+  touchdownSettleTelemetry = touchdownSettleResult.state;
+  if (touchdownSettleResult.message) setRouteChoiceStatus(touchdownSettleResult.message);
+
   if (collision.requiresRecovery) {
     recover();
   } else if (collision.grounded) {
@@ -428,9 +681,32 @@ function frame(now) {
     controller.landingRequested = false;
     controller.velocity.y = 0;
     controller.stallFactor = 0;
+    controller.setEnvironmentVerticalBias(0);
+    controller.setEnvironmentPlanarCurrent(null);
   } else if (collision.collided) {
     controller.airborne = true;
     controller.landingRequested = false;
+    controller.setEnvironmentVerticalBias(0);
+    controller.setEnvironmentPlanarCurrent(null);
+  }
+
+  const recoveryFeedback = stepRecoveryFeedback(recoveryFeedbackState, {
+    explicitRecovery: recovering,
+    requiresRecovery: collision.requiresRecovery === true,
+    reducedMotion: Boolean(reducedMotionQuery?.matches),
+  });
+  recoveryFeedbackState = recoveryFeedback.state;
+
+  if (!collision.requiresRecovery) {
+    applyIslandLandfall({
+      collision,
+      position: { x: position.x, z: position.z },
+      islands: world.islands,
+      discoveredIslandIds: discovered,
+      exploration: mysteryExploration,
+      persist,
+      announce: setRouteChoiceStatus,
+    });
   }
 
   if (position.y < -20 || !Number.isFinite(position.lengthSq())) recover();
@@ -454,7 +730,51 @@ function frame(now) {
     }
   }
   discoverRoutes();
+
+  const landmarkInvestigation = deriveLiveLandmarkInvestigation({
+    islands: world.islands,
+    discoveredIslandIds: discovered,
+    explorationEvents: mysteryExploration.events,
+    currentRegionId: currentRegion?.id ?? null,
+    position: { x: position.x, y: position.y, z: position.z },
+    yaw: controller.yaw,
+    airborne: controller.airborne,
+    grounded: Boolean(lastCollision.grounded),
+    paused: false,
+    recovering: recovering || Boolean(lastCollision.requiresRecovery),
+    restoring: false,
+    crossing: Boolean(activeCrossingRouteId),
+    interact: input.investigate === true,
+  });
+  landmarkInvestigationTelemetry = landmarkInvestigation.state;
+  if (landmarkInvestigation.completed && landmarkInvestigation.event) {
+    dispatchEvent(new CustomEvent("greyblue:landmark-investigated", { detail: landmarkInvestigation.event }));
+  }
+
   const routeGuidance = updateRouteGuidance(proximity);
+  if (!activeCrossingRouteId && routeGuidance?.routeId && routeGuidance.progress >= CROSSING_COMMIT_PROGRESS) {
+    activeCrossingRouteId = routeGuidance.routeId;
+    routeChoiceTelemetry = Object.freeze({ ...routeChoiceTelemetry, reason: "active-crossing", preferredRouteId });
+  }
+
+  const ridgeRideResult = ridgeRide.update({
+    ready: Boolean(dragon && heroIsle),
+    paused: false,
+    airborne: controller.airborne,
+    grounded: Boolean(lastCollision.grounded),
+    landing: controller.landingRequested,
+    recovering: recovering || Boolean(lastCollision.requiresRecovery),
+    restoring: false,
+    crossing: Boolean(activeCrossingRouteId),
+    ridgeLiftActive: ridgeLift.active === true,
+    position: { x: position.x, z: position.z },
+  });
+  ridgeRideTelemetry = ridgeRideResult.state;
+  const ridgeRideMessage = ridgeRideCompletionMessage(ridgeRideResult);
+  if (ridgeRideMessage) setRouteChoiceStatus(ridgeRideMessage);
+  if (recoveryFeedback.presentation.announcement) {
+    setRouteChoiceStatus(recoveryFeedback.presentation.announcement);
+  }
 
   if (dragon) {
     dragon.position.copy(position);
@@ -468,8 +788,13 @@ function frame(now) {
     yaw: controller.yaw,
     bank: controller.bank,
     speed: flightState.speed,
+    grounded: collision.grounded,
     dt,
     sampleHeight: terrainHeightAt,
+    lookX: input.lookX,
+    lookY: input.lookY,
+    interrupted: recovering || collision.requiresRecovery,
+    reducedMotion: Boolean(reducedMotionQuery?.matches),
   });
   lastCameraState = cameraState;
   camera.position.set(cameraState.position.x, cameraState.position.y, cameraState.position.z);
@@ -482,7 +807,8 @@ function frame(now) {
   const routeLabel = routeGuidance
     ? ` · ${routeGuidance.destinationName} ${routeGuidance.turn} · ${routeGuidance.fogRisk.level} fog`
     : "";
-  stateLine.textContent = `${controller.airborne ? "FLIGHT" : "LANDED"} · ${Math.round(speed)} speed · ${Math.round(position.y)} altitude · ${discovered.size} isles · ${discoveredRoutes.size} routes${regionLabel}${routeLabel}`;
+  const investigationLabel = landmarkInvestigationTelemetry.available ? " · F investigate" : "";
+  stateLine.textContent = `${controller.airborne ? "FLIGHT" : "LANDED"} · ${Math.round(speed)} speed · ${Math.round(position.y)} altitude · ${discovered.size} isles · ${discoveredRoutes.size} routes${regionLabel}${routeLabel}${investigationLabel}`;
 
   const surface = sampleSurfaceAt(position.x, position.z);
   globalThis.__greyblueState = {
@@ -503,9 +829,15 @@ function frame(now) {
     },
     animation: dragonRuntime?.telemetry || null,
     camera: cameraState,
+    cameraLook: cameraState.freeLook,
+    ridgeRide: ridgeRideTelemetry,
+    touchdownSettle: touchdownSettleTelemetry,
+    landmarkInvestigation: landmarkInvestigationTelemetry,
     fog: currentFogProfile,
     routeGuidance: currentRouteGuidance,
     guidancePreference: preferredRouteId,
+    routeChoice: routeChoiceTelemetry,
+    mysteryRoutes: mysteryRouteTelemetry,
     activeIslandCount: islandMeshes.size,
     activeIslandIds: active.map((island) => island.id),
     discoveredCount: discovered.size,
@@ -529,6 +861,7 @@ function frame(now) {
       routeCount: world.routes.length,
       islandCount: world.islands.length,
       streaming: STREAMING_RANGES,
+      streamingPresentation: streamedIslandPresentation.telemetry(),
       heroTerrain: heroTerrain?.telemetry || null,
     },
     clip,
