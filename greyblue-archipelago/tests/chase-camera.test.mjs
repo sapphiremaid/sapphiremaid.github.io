@@ -126,7 +126,9 @@ function finite(snapshot) {
   for (let index = 0; index < 60; index += 1) rig.update({ ...frame, grounded: true });
   rig.snapTo({ x: 0, y: 100, z: 0 }, 0, () => 0);
   const afterRecovery = rig.update({ ...frame, grounded: false });
-  const fresh = new ChaseCameraRig().update({ ...frame, grounded: false });
+  const freshRig = new ChaseCameraRig();
+  freshRig.snapTo({ x: 0, y: 100, z: 0 }, 0, () => 0);
+  const fresh = freshRig.update({ ...frame, grounded: false });
   assert.ok(Math.abs(afterRecovery.position.z - fresh.position.z) < 0.5, "recovery snap clears grounded-settle history");
 }
 

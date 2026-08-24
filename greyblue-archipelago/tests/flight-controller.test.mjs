@@ -1,10 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-
-const sourceUrl = new URL("../src/flight/controller.js", import.meta.url);
-const source = await readFile(sourceUrl, "utf8");
-const moduleUrl = `data:text/javascript;base64,${Buffer.from(source).toString("base64")}`;
-const { FlightController } = await import(moduleUrl);
+import { FlightController } from "../src/flight/controller.js";
 
 function finite(snapshot) {
   return [

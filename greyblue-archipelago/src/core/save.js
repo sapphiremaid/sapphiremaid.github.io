@@ -13,8 +13,17 @@ const EXPLORATION_EVENT_KINDS = new Set(["region-entered", "landmark-reached", "
 const REGIONAL_FLIGHT_MEMORY_CLASSES = new Set(["wake", "ring", "hush", "weathering"]);
 let runtimeRecoveryCheckpoint = null;
 let holdRecoveryCheckpointOnce = false;
+let activeRecoveryStorage = null;
+
+function activateRecoveryStorage(storage) {
+  if (activeRecoveryStorage === storage) return;
+  activeRecoveryStorage = storage;
+  runtimeRecoveryCheckpoint = null;
+  holdRecoveryCheckpointOnce = false;
+}
 
 export function saveGame(state, storage = localStorage, guidanceContext = null) {
+  activateRecoveryStorage(storage);
   const discoveredRoutes = normalizeStringSet(state.discoveredRoutes);
   const context = guidanceContext
     ? { ...guidanceContext, discoveredRoutes: guidanceContext.discoveredRoutes ?? discoveredRoutes }
@@ -72,6 +81,7 @@ export function saveSettingsPatch(settings, storage = localStorage) {
 }
 
 export function loadGame(storage = localStorage, guidanceContext = null) {
+  activateRecoveryStorage(storage);
   const raw = storage.getItem(SAVE_KEY);
   if (!raw) return null;
   try {
@@ -126,6 +136,7 @@ export function clearSave(storage = localStorage) {
   storage.removeItem(SAVE_KEY);
   runtimeRecoveryCheckpoint = null;
   holdRecoveryCheckpointOnce = false;
+  activeRecoveryStorage = null;
 }
 
 export function safeRespawn(state, spawn = DEFAULT_SPAWN) {
