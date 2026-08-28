@@ -1,6 +1,6 @@
 from urllib.request import urlopen
 
-SOURCE = "https://amuletmaiden.github.io/katherines-stacks/katherines_stacks.py"
+SOURCE = "https://sapphiremaid.github.io/katherines-stacks/katherines_stacks.py"
 
 
 def show_error(message):

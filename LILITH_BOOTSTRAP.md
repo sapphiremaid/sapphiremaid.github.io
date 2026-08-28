@@ -55,11 +55,11 @@ Do not assume Documents contains Basic Memory.
 
 Canonical public copy of this bootstrap:
 
-`https://raw.githubusercontent.com/amuletmaiden/amuletmaiden.github.io/main/LILITH_BOOTSTRAP.md`
+`https://raw.githubusercontent.com/sapphiremaid/sapphiremaid.github.io/main/LILITH_BOOTSTRAP.md`
 
 Repository:
 
-`https://github.com/amuletmaiden/amuletmaiden.github.io`
+`https://github.com/sapphiremaid/sapphiremaid.github.io`
 
 This public bootstrap is a discovery/recovery layer. Local Basic Memory remains canonical for mutable policy and private persistent state unless the runtime policy explicitly changes that architecture.
 

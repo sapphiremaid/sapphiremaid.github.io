@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         DAT Local Bridge POC
-// @namespace    https://github.com/amuletmaiden/kt-bus
+// @namespace    https://github.com/sapphiremaid/kt-bus
 // @version      0.2.0
 // @description  Direct ChatGPT -> localhost MCP bridge with bounded local file attachment.
 // @match        https://chatgpt.com/*
@@ -11,8 +11,8 @@
 // @connect      127.0.0.1
 // @connect      localhost
 // @run-at       document-idle
-// @downloadURL  https://amuletmaiden.github.io/ktbus-poc/chatgpt_dat_bridge.user.js
-// @updateURL    https://amuletmaiden.github.io/ktbus-poc/chatgpt_dat_bridge.user.js
+// @downloadURL  https://sapphiremaid.github.io/ktbus-poc/chatgpt_dat_bridge.user.js
+// @updateURL    https://sapphiremaid.github.io/ktbus-poc/chatgpt_dat_bridge.user.js
 // ==/UserScript==
 
 (() => {

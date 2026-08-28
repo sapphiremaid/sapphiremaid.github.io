@@ -5,7 +5,7 @@
   // Bootstrap contract markers retained intentionally: KTBUS2_REQUEST and __KTBUS_RELAY_STOP__.
   const VERSION = '0.10.0';
   const PIN = '205ebffc9c2436ef85fcde049bbb0e5a21be91d3';
-  const BASE = `https://raw.githubusercontent.com/amuletmaiden/amuletmaiden.github.io/${PIN}/ktbus-poc`;
+  const BASE = `https://raw.githubusercontent.com/sapphiremaid/sapphiremaid.github.io/${PIN}/ktbus-poc`;
   const LEGACY_URL = `${BASE}/chatgpt_ktbus_runtime.js`;
   const DAT_URL = `${BASE}/chatgpt_dat_bridge.user.js`;
 

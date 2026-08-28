@@ -4,7 +4,7 @@ Leaf² is an isolated experimental edition at `https://sapphiremaid.github.io/le
 
 ## Safety boundary
 
-- It does not modify `amuletmaiden/leaf`.
+- It does not modify `sapphiremaid/leaf`.
 - It fetches the raw Leaf engine into an iframe `srcdoc`.
 - The normal named systems are loaded explicitly from `/leaf/`.
 - `leaf-new-goddesses.js` is replaced only inside Leaf² by `leaf2-new-goddesses.js`.

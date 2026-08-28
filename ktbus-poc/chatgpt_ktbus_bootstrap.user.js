@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         KT-Bus ChatGPT Browser Relay POC
-// @namespace    https://github.com/amuletmaiden/kt-bus
+// @namespace    https://github.com/sapphiremaid/kt-bus
 // @version      1.1.1
 // @description  Stable KT-Bus ChatGPT relay bootstrap; loads a version-checked cached runtime without visible-tab authority.
 // @match        https://chatgpt.com/*
@@ -8,19 +8,19 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
-// @connect      amuletmaiden.github.io
+// @connect      sapphiremaid.github.io
 // @connect      127.0.0.1
 // @connect      localhost
 // @run-at       document-idle
-// @downloadURL  https://amuletmaiden.github.io/ktbus-poc/chatgpt_ktbus_poc.user.js
-// @updateURL    https://amuletmaiden.github.io/ktbus-poc/chatgpt_ktbus_poc.user.js
+// @downloadURL  https://sapphiremaid.github.io/ktbus-poc/chatgpt_ktbus_poc.user.js
+// @updateURL    https://sapphiremaid.github.io/ktbus-poc/chatgpt_ktbus_poc.user.js
 // ==/UserScript==
 
 (() => {
   'use strict';
 
   const BOOTSTRAP_VERSION = '1.1.1';
-  const RUNTIME_URL = 'https://amuletmaiden.github.io/ktbus-poc/chatgpt_ktbus_runtime.js';
+  const RUNTIME_URL = 'https://sapphiremaid.github.io/ktbus-poc/chatgpt_ktbus_runtime.js';
   const MIN_RUNTIME = [0, 8, 0];
   const CACHE_KEY = 'ktbus-relay-runtime-cache-v2';
   const CACHE_VERSION_KEY = 'ktbus-relay-runtime-cache-version-v2';

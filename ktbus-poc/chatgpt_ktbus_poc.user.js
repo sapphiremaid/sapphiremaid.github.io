@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         KT-Bus ChatGPT Browser Relay POC
-// @namespace    https://github.com/amuletmaiden/kt-bus
+// @namespace    https://github.com/sapphiremaid/kt-bus
 // @version      1.6.0
 // @description  Stable KT-Bus loader: verified GitHub manifest/runtime, CSP-safe hot updates, rollback, DAT bridge.
 // @match        https://chatgpt.com/*
@@ -13,17 +13,17 @@
 // @connect      127.0.0.1
 // @connect      localhost
 // @sandbox      DOM
-// @require      https://raw.githubusercontent.com/amuletmaiden/amuletmaiden.github.io/205ebffc9c2436ef85fcde049bbb0e5a21be91d3/ktbus-poc/chatgpt_dat_bridge.user.js
+// @require      https://raw.githubusercontent.com/sapphiremaid/sapphiremaid.github.io/205ebffc9c2436ef85fcde049bbb0e5a21be91d3/ktbus-poc/chatgpt_dat_bridge.user.js
 // @run-at       document-idle
-// @downloadURL  https://raw.githubusercontent.com/amuletmaiden/amuletmaiden.github.io/main/ktbus-poc/chatgpt_ktbus_poc.user.js
-// @updateURL    https://raw.githubusercontent.com/amuletmaiden/amuletmaiden.github.io/main/ktbus-poc/chatgpt_ktbus_poc.user.js
+// @downloadURL  https://raw.githubusercontent.com/sapphiremaid/sapphiremaid.github.io/main/ktbus-poc/chatgpt_ktbus_poc.user.js
+// @updateURL    https://raw.githubusercontent.com/sapphiremaid/sapphiremaid.github.io/main/ktbus-poc/chatgpt_ktbus_poc.user.js
 // ==/UserScript==
 
 (() => {
   'use strict';
 
   const LOADER_VERSION = '1.6.0';
-  const MANIFEST_URL = 'https://raw.githubusercontent.com/amuletmaiden/amuletmaiden.github.io/main/ktbus-poc/chatgpt_ktbus_manifest.json';
+  const MANIFEST_URL = 'https://raw.githubusercontent.com/sapphiremaid/sapphiremaid.github.io/main/ktbus-poc/chatgpt_ktbus_manifest.json';
   const POLL_MS = 2 * 60 * 1000;
   const MAX_RUNTIME_BYTES = 120000;
   const ALLOWED_RUNTIME_URL = /^https:\/\/raw\.githubusercontent\.com\/amuletmaiden\/amuletmaiden\.github\.io\/[0-9a-f]{40}\/ktbus-poc\/chatgpt_ktbus_runtime\.js$/i;

@@ -4,8 +4,8 @@
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
-$repo = 'amuletmaiden/kt-bus'
-$bridgeApiPath = 'repos/amuletmaiden/kt-bus/contents/blender-bridge/bridge.py'
+$repo = 'sapphiremaid/kt-bus'
+$bridgeApiPath = 'repos/sapphiremaid/kt-bus/contents/blender-bridge/bridge.py'
 $installDir = Join-Path $env:LOCALAPPDATA 'KatherineBlenderBridge'
 $bridgePath = Join-Path $installDir 'bridge.py'
 $supervisorPath = Join-Path $installDir 'supervisor.pyw'
