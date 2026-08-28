@@ -1,6 +1,6 @@
 # Leaf² — Second Ecology
 
-Leaf² is an isolated experimental edition at `https://amuletmaiden.github.io/leaf2/`.
+Leaf² is an isolated experimental edition at `https://sapphiremaid.github.io/leaf2/`.
 
 ## Safety boundary
 

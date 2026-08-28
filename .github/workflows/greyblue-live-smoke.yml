@@ -34,5 +34,5 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Validate deployed Greyblue build
         env:
-          GREYBLUE_URL: https://amuletmaiden.github.io/greyblue-archipelago/
+          GREYBLUE_URL: https://sapphiremaid.github.io/greyblue-archipelago/
         run: node greyblue-archipelago/tests/live-smoke.mjs

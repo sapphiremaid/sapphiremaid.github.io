@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "playwright";
 
-const target = process.env.GREYBLUE_URL || "https://amuletmaiden.github.io/greyblue-archipelago/";
+const target = process.env.GREYBLUE_URL || "https://sapphiremaid.github.io/greyblue-archipelago/";
 const sourceUrl = new URL("./src/app.js", target);
 const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
