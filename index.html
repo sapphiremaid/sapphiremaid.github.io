@@ -3,49 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#07110f">
+  <meta name="theme-color" content="#07101a">
   <meta name="color-scheme" content="dark">
-  <title>amuletmaiden</title>
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet">
+  <meta name="googlebot" content="noindex,nofollow,noarchive,nosnippet">
+  <meta name="referrer" content="no-referrer">
+  <title>sapphiremaid</title>
   <style>
-    :root{--ink:#eaf3eb;--muted:#8ca49a;--line:rgba(194,231,214,.16);--panel:rgba(8,24,22,.7);--green:#8fd6a8;--blue:#8bbbd8}
+    :root{--ink:#edf4ff;--muted:#8ba0b8;--line:rgba(184,211,242,.16);--blue:#91bfe8}
     *{box-sizing:border-box}
-    html{min-width:320px;background:#050a0b;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-    body{min-height:100vh;margin:0;display:grid;place-items:center;overflow-x:hidden;background:radial-gradient(circle at 18% 16%,rgba(55,145,109,.13),transparent 34rem),radial-gradient(circle at 82% 80%,rgba(48,102,145,.12),transparent 38rem),linear-gradient(160deg,#050a0b 0%,#07110f 54%,#071016 100%)}
-    body:before{position:fixed;inset:0;pointer-events:none;content:"";opacity:.22;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.014) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.55),transparent 80%)}
-    main{position:relative;width:min(980px,calc(100% - 32px));padding:clamp(42px,7vw,82px) 0}
-    .sigil{display:grid;width:42px;height:42px;place-items:center;margin-bottom:30px;border:1px solid rgba(177,224,201,.3);transform:rotate(45deg);box-shadow:0 0 28px rgba(92,190,145,.08),inset 0 0 18px rgba(118,184,212,.06)}
-    .sigil:before{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--green),var(--blue));box-shadow:0 0 16px rgba(143,214,168,.4);content:""}
-    .eyebrow{margin:0 0 12px;color:#789187;font-size:11px;font-weight:700;letter-spacing:.22em;text-transform:uppercase}
-    h1{margin:0;max-width:10ch;font:500 clamp(48px,9vw,104px)/.86 Georgia,"Times New Roman",serif;letter-spacing:-.055em}
-    .intro{max-width:560px;margin:25px 0 48px;color:#9ab0a7;font:400 clamp(15px,2vw,18px)/1.65 Georgia,"Times New Roman",serif}
-    nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-    a{position:relative;display:grid;min-height:142px;padding:23px 24px 21px;border:1px solid var(--line);overflow:hidden;background:linear-gradient(145deg,rgba(18,43,37,.52),rgba(8,20,24,.62));color:inherit;text-decoration:none;transition:border-color .18s ease,background .18s ease,transform .18s ease}
-    a:before{position:absolute;inset:0;opacity:0;background:radial-gradient(circle at 15% 20%,rgba(114,202,161,.11),transparent 54%);content:"";transition:opacity .18s ease}
-    a:hover,a:focus-visible{border-color:rgba(188,232,211,.38);background:linear-gradient(145deg,rgba(22,51,43,.7),rgba(9,23,28,.76));transform:translateY(-2px)}
-    a:focus-visible{outline:2px solid rgba(171,212,190,.78);outline-offset:2px}
-    a:hover:before,a:focus-visible:before{opacity:1}
-    .n{position:relative;align-self:start;color:#718a80;font-size:10px;font-weight:700;letter-spacing:.18em}
-    .name{position:relative;align-self:end;margin-top:34px;font:500 clamp(20px,2.8vw,30px)/1.05 Georgia,"Times New Roman",serif;letter-spacing:-.015em}
-    .arrow{position:absolute;right:22px;bottom:21px;color:#66867a;font-size:17px;transition:transform .18s ease,color .18s ease}
-    a:hover .arrow,a:focus-visible .arrow{color:#abd4be;transform:translateX(3px)}
-    footer{display:flex;justify-content:space-between;gap:18px;margin-top:23px;padding-top:18px;border-top:1px solid rgba(194,231,214,.09);color:#738980;font-size:10px;font-weight:650;letter-spacing:.16em;text-transform:uppercase}
-    @media(max-width:640px){main{width:min(100% - 22px,520px);padding:30px 0 34px}.sigil{width:34px;height:34px;margin-bottom:24px}.intro{margin:22px 0 34px}nav{grid-template-columns:1fr}a{min-height:112px;padding:19px 19px 17px}.name{margin-top:24px}.arrow{right:18px;bottom:17px}footer{align-items:flex-start;flex-direction:column}}
-    @media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important}}
+    html{min-width:320px;background:#050912;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    body{min-height:100vh;margin:0;display:grid;place-items:center;overflow-x:hidden;background:radial-gradient(circle at 20% 18%,rgba(53,102,166,.16),transparent 34rem),radial-gradient(circle at 82% 82%,rgba(70,125,176,.1),transparent 38rem),linear-gradient(160deg,#050912 0%,#07101a 56%,#07131d 100%)}
+    body:before{position:fixed;inset:0;pointer-events:none;content:"";opacity:.2;background-image:linear-gradient(rgba(255,255,255,.018) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.014) 1px,transparent 1px);background-size:48px 48px;mask-image:linear-gradient(to bottom,rgba(0,0,0,.55),transparent 80%)}
+    main{position:relative;width:min(920px,calc(100% - 32px));padding:clamp(42px,7vw,82px) 0}
+    .sigil{display:grid;width:42px;height:42px;place-items:center;margin-bottom:30px;border:1px solid rgba(184,211,242,.28);transform:rotate(45deg);box-shadow:0 0 28px rgba(76,137,202,.09),inset 0 0 18px rgba(120,170,220,.05)}
+    .sigil:before{width:8px;height:8px;border-radius:50%;background:var(--blue);box-shadow:0 0 18px rgba(145,191,232,.42);content:""}
+    h1{margin:0;font:500 clamp(48px,9vw,104px)/.86 Georgia,"Times New Roman",serif;letter-spacing:-.055em}
+    .rule{width:min(520px,72vw);height:1px;margin-top:34px;background:linear-gradient(90deg,var(--line),transparent)}
+    @media(max-width:640px){main{width:min(100% - 22px,520px);padding:30px 0 34px}.sigil{width:34px;height:34px;margin-bottom:24px}}
   </style>
 </head>
 <body>
   <main>
     <div class="sigil" aria-hidden="true"></div>
-    <p class="eyebrow">current surfaces</p>
-    <h1>amuletmaiden</h1>
-    <p class="intro">A small map of the places that are alive right now.</p>
-    <nav aria-label="Current amuletmaiden projects and sites">
-      <a href="https://sapphiremaid.github.io/greyblue-archipelago/"><span class="n">01</span><span class="name">Greyblue Archipelago</span><span class="arrow" aria-hidden="true">&#8599;</span></a>
-      <a href="https://sapphiremaid.github.io/leaf/"><span class="n">02</span><span class="name">LEAF</span><span class="arrow" aria-hidden="true">&#8599;</span></a>
-      <a href="https://sapphiremaid.github.io/leafbound/"><span class="n">03</span><span class="name">LEAFBOUND</span><span class="arrow" aria-hidden="true">&#8599;</span></a>
-      <a href="https://amuletmaiden.neocities.org/"><span class="n">04</span><span class="name">Neocities</span><span class="arrow" aria-hidden="true">&#8599;</span></a>
-    </nav>
-    <footer><span>amuletmaiden</span><span>four doors &middot; one root</span></footer>
+    <h1>sapphiremaid</h1>
+    <div class="rule" aria-hidden="true"></div>
   </main>
 </body>
 </html>
