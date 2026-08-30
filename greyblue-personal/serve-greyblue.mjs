@@ -1,11 +1,20 @@
 import { createServer } from 'node:http'
+import { existsSync } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execFile } from 'node:child_process'
 
-const root = resolve(fileURLToPath(new URL('.', import.meta.url)))
+const scriptDir = resolve(fileURLToPath(new URL('.', import.meta.url)))
+const root = existsSync(join(scriptDir, 'greyblue-archipelago', 'index.html'))
+  ? scriptDir
+  : resolve(scriptDir, '..')
 const entryPath = '/greyblue-archipelago/'
+
+if (!existsSync(join(root, 'greyblue-archipelago', 'index.html'))) {
+  throw new Error('Greyblue source tree is missing: expected greyblue-archipelago/index.html')
+}
+
 const mime = new Map([
   ['.html', 'text/html; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
