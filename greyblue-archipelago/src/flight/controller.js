@@ -3,7 +3,11 @@ import { deriveBankedTurnVerticalLoad } from "./banked-turn-load.js";
 import { deriveFlightPathPitchBias } from "./flight-path-pitch.js";
 import { deriveGlideCoastTarget } from "./glide-coast.js";
 import { deriveLandingVerticalTarget } from "./landing-flare.js";
-import { deriveRegionalAirCurrent } from "./regional-air-current.js";
+import {
+  createRegionalAirCurrentTransition,
+  deriveRegionalAirCurrent,
+  stepRegionalAirCurrentTransition,
+} from "./regional-air-current.js";
 import {
   advanceTakeoffLiftElapsed,
   deriveTakeoffLift,
@@ -23,6 +27,7 @@ export class FlightController {
     this.takeoffLiftElapsed = TAKEOFF_LIFT_DURATION;
     this.environmentVerticalBias = 0;
     this.environmentPlanarCurrent = { x: 0, z: 0 };
+    this.environmentPlanarCurrentTransition = createRegionalAirCurrentTransition();
   }
 
   setEnvironmentVerticalBias(value = 0) {
@@ -101,8 +106,14 @@ export class FlightController {
       }
     }
 
+    this.environmentPlanarCurrentTransition = stepRegionalAirCurrentTransition({
+      state: this.environmentPlanarCurrentTransition,
+      targetCurrent: this.environmentPlanarCurrent,
+      dt: frame,
+      interrupted: !this.airborne || this.landingRequested || takeoffLiftActive || stallPressure > 0.35,
+    });
     const regionalCurrent = deriveRegionalAirCurrent({
-      airCurrent: this.environmentPlanarCurrent,
+      airCurrent: this.environmentPlanarCurrentTransition,
       airborne: this.airborne,
       landingRequested: this.landingRequested,
       takeoffActive: takeoffLiftActive,
@@ -157,6 +168,7 @@ export class FlightController {
       this.takeoffLiftElapsed = TAKEOFF_LIFT_DURATION;
       this.environmentVerticalBias = 0;
       this.environmentPlanarCurrent = { x: 0, z: 0 };
+      this.environmentPlanarCurrentTransition = createRegionalAirCurrentTransition();
     }
 
     const bankTarget = steer * (0.45 + Math.min(updatedPlanarSpeed / 70, 1) * 0.32);
@@ -199,6 +211,7 @@ export class FlightController {
         this.takeoffLiftElapsed = TAKEOFF_LIFT_DURATION;
         this.environmentVerticalBias = 0;
         this.environmentPlanarCurrent = { x: 0, z: 0 };
+        this.environmentPlanarCurrentTransition = createRegionalAirCurrentTransition();
       }
     }
     return position;
@@ -239,6 +252,8 @@ export class FlightController {
       this.environmentVerticalBias,
       this.environmentPlanarCurrent.x,
       this.environmentPlanarCurrent.z,
+      this.environmentPlanarCurrentTransition.x,
+      this.environmentPlanarCurrentTransition.z,
     ];
     if (values.every(Number.isFinite)) return;
     this.velocity = { x: 0, y: 0, z: 0 };
@@ -251,6 +266,7 @@ export class FlightController {
     this.takeoffLiftElapsed = TAKEOFF_LIFT_DURATION;
     this.environmentVerticalBias = 0;
     this.environmentPlanarCurrent = { x: 0, z: 0 };
+    this.environmentPlanarCurrentTransition = createRegionalAirCurrentTransition();
   }
 }
 

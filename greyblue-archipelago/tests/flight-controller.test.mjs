@@ -64,6 +64,28 @@ function finite(snapshot) {
 {
   const controller = new FlightController();
   controller.airborne = true;
+  controller.velocity = { x: 0, y: 0, z: 36 };
+  controller.setEnvironmentPlanarCurrent({ x: 4, z: 0 });
+  controller.step({}, 1 / 60);
+  assert.ok(controller.environmentPlanarCurrentTransition.x > 0);
+  assert.ok(controller.environmentPlanarCurrentTransition.x < 4, "authored current fades in instead of hard switching");
+
+  for (let i = 0; i < 240; i += 1) controller.step({}, 1 / 60);
+  assert.ok(Math.abs(controller.environmentPlanarCurrentTransition.x - 4) < 0.02, "transition converges to the authored current");
+
+  controller.setEnvironmentPlanarCurrent({ x: -4, z: 0 });
+  controller.step({}, 1 / 60);
+  assert.ok(controller.environmentPlanarCurrentTransition.x < 4);
+  assert.ok(controller.environmentPlanarCurrentTransition.x > -4, "region seam reversal does not snap across the full vector in one frame");
+
+  controller.landingRequested = true;
+  controller.step({}, 1 / 60);
+  assert.deepEqual(controller.environmentPlanarCurrentTransition, { x: 0, z: 0, transitioning: false }, "landing clears applied regional-current history");
+}
+
+{
+  const controller = new FlightController();
+  controller.airborne = true;
   controller.velocity = { x: 0, y: -6, z: 0 };
   let snapshot = controller.step({ throttle: -1, climb: 0 }, 1 / 60);
   assert.equal(snapshot.mode, "recovery", "zero-airflow flight enters recovery after evaluation");
@@ -82,6 +104,7 @@ function finite(snapshot) {
   const recovered = controller.step({}, 1 / 60);
   assert.ok(finite(recovered), "non-finite state repairs itself");
   assert.equal(recovered.mode, "recovery");
+  assert.deepEqual(controller.environmentPlanarCurrentTransition, { x: 0, z: 0, transitioning: false });
 }
 
 console.log("flight-controller tests passed");
