@@ -13,17 +13,30 @@ assert.equal(silent.crossingGain, 0);
 const paused = deriveSoundscape({
   ready: true,
   paused: true,
-  flight: { speed: 180 },
+  flight: { speed: 180, airborne: true },
   position: { y: 1200 },
   fog: { effectiveDensity: 0.0001 },
 });
 assert.equal(paused.active, false);
 assert.equal(paused.windGain, 0);
 
+for (const state of [
+  { flight: { speed: 70, airborne: false }, collision: { grounded: true } },
+  { flight: { speed: 70, airborne: true, mode: 'recovery' } },
+  { flight: { speed: 70, airborne: true }, collision: { requiresRecovery: true } },
+  { flight: { speed: 70, airborne: true }, restorePublishing: true },
+  { flight: { speed: 70, airborne: true }, explorationRestorePublishing: true },
+]) {
+  const inactive = deriveSoundscape({ ready: true, paused: false, ...state });
+  assert.equal(inactive.active, false);
+  assert.equal(inactive.windGain, 0);
+  assert.equal(inactive.toneGain, 0);
+}
+
 const calm = deriveSoundscape({
   ready: true,
   paused: false,
-  flight: { speed: 12 },
+  flight: { speed: 12, airborne: true },
   position: { y: 80 },
   fog: { effectiveDensity: 0.0002 },
   currentRegion: { id: 'hushed-reach' },
@@ -32,12 +45,14 @@ const calm = deriveSoundscape({
 const fast = deriveSoundscape({
   ready: true,
   paused: false,
-  flight: { speed: 120 },
+  flight: { speed: 120, airborne: true },
   position: { y: 900 },
   fog: { effectiveDensity: 0.0002 },
   currentRegion: { id: 'hushed-reach' },
   routeChoice: { reason: 'active-crossing' },
 });
+assert.equal(calm.active, true);
+assert.equal(fast.active, true);
 assert.ok(fast.windGain > calm.windGain);
 assert.ok(fast.windCutoff > calm.windCutoff);
 assert.equal(calm.crossingGain, 0);
@@ -47,14 +62,14 @@ close(fast.toneFrequency, calm.toneFrequency);
 
 const denseFog = deriveSoundscape({
   ready: true,
-  flight: { speed: 80 },
+  flight: { speed: 80, airborne: true },
   position: { y: 500 },
   fog: { effectiveDensity: 0.0008 },
   currentRegion: { id: 'hushed-reach' },
 });
 const clearFog = deriveSoundscape({
   ready: true,
-  flight: { speed: 80 },
+  flight: { speed: 80, airborne: true },
   position: { y: 500 },
   fog: { effectiveDensity: 0.00005 },
   currentRegion: { id: 'hushed-reach' },
@@ -62,14 +77,14 @@ const clearFog = deriveSoundscape({
 assert.ok(denseFog.windCutoff < clearFog.windCutoff);
 assert.ok(denseFog.toneGain < clearFog.toneGain);
 
-const regionA = deriveSoundscape({ ready: true, currentRegion: { id: 'blueglass-wake' } });
-const regionB = deriveSoundscape({ ready: true, currentRegion: { id: 'far-choir' } });
+const regionA = deriveSoundscape({ ready: true, flight: { airborne: true }, currentRegion: { id: 'blueglass-wake' } });
+const regionB = deriveSoundscape({ ready: true, flight: { airborne: true }, currentRegion: { id: 'far-choir' } });
 assert.notEqual(regionA.toneFrequency, regionB.toneFrequency);
-assert.equal(regionA.toneFrequency, deriveSoundscape({ ready: true, currentRegion: { id: 'blueglass-wake' } }).toneFrequency);
+assert.equal(regionA.toneFrequency, deriveSoundscape({ ready: true, flight: { airborne: true }, currentRegion: { id: 'blueglass-wake' } }).toneFrequency);
 
 const malformed = deriveSoundscape({
   ready: true,
-  flight: { speed: Number.NaN },
+  flight: { speed: Number.NaN, airborne: true },
   position: { y: Number.POSITIVE_INFINITY },
   fog: { effectiveDensity: 'bad' },
   currentRegion: { id: { nope: true } },

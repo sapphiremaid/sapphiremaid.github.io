@@ -21,6 +21,14 @@ function regionTone(regionId) {
   return 82.41 * Math.pow(2, semitone / 12);
 }
 
+function ordinaryFlightEligible(state) {
+  const grounded = state?.collision?.grounded === true;
+  const airborne = grounded ? false : state?.flight?.airborne !== false;
+  const recoveryActive = state?.collision?.requiresRecovery === true || state?.flight?.mode === 'recovery';
+  const restorePublishing = Boolean(state?.restorePublishing || state?.explorationRestorePublishing);
+  return airborne && !recoveryActive && !restorePublishing;
+}
+
 export function deriveSoundscape(state = {}) {
   const ready = state?.ready === true;
   const paused = state?.paused === true;
@@ -33,7 +41,7 @@ export function deriveSoundscape(state = {}) {
   const crossing = state?.routeChoice?.reason === 'active-crossing';
   const regionId = boundedText(state?.currentRegion?.id, 64);
 
-  if (!ready || paused) {
+  if (!ready || paused || !ordinaryFlightEligible(state)) {
     return Object.freeze({
       active: false,
       windGain: 0,
