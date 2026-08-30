@@ -1,5 +1,5 @@
 const DENSITIES = new Set(['focused', 'expanded']);
-const INPUT_SOURCES = new Set(['keyboard', 'gamepad']);
+const INPUT_SOURCES = new Set(['keyboard', 'gamepad', 'mixed']);
 
 export function normalizeHudDensity(value) {
   return DENSITIES.has(value) ? value : 'focused';
@@ -24,7 +24,12 @@ export function deriveHudPreferenceState({ settings, inputSource } = {}) {
 }
 
 export function controlHintForSource(inputSource) {
-  return normalizeHudInputSource(inputSource) === 'gamepad'
-    ? 'Controls: use your flight controls; HUD density is available from the interface toggle.'
-    : 'Controls: use your flight controls; press H to change HUD density.';
+  const source = normalizeHudInputSource(inputSource);
+  if (source === 'gamepad') {
+    return 'Gamepad: left stick steer/climb · triggers throttle · right stick look · face buttons fly, interact, and recover.';
+  }
+  if (source === 'mixed') {
+    return 'Keyboard + gamepad active · H changes HUD density; the interface toggle works with either input.';
+  }
+  return 'Keyboard: W/S throttle · A/D steer · Space/Shift climb/dive · E fly/land · F interact · R recover · H HUD.';
 }

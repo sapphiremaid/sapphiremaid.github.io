@@ -21,22 +21,38 @@ test('density toggle is deterministic', () => {
   assert.equal(toggleHudDensity('malformed'), 'expanded');
 });
 
-test('input source is coarse and fail-soft', () => {
+test('input source is coarse, preserves mixed input, and fails soft', () => {
   assert.equal(normalizeHudInputSource('gamepad'), 'gamepad');
   assert.equal(normalizeHudInputSource('keyboard'), 'keyboard');
+  assert.equal(normalizeHudInputSource('mixed'), 'mixed');
   assert.equal(normalizeHudInputSource('DualSense Wireless Controller'), 'keyboard');
 });
 
 test('public preference state contains no caller settings or device detail', () => {
   const settings = { hudDensity: 'expanded', hiddenRoute: 'isle-secret' };
-  const result = deriveHudPreferenceState({ settings, inputSource: 'gamepad' });
-  assert.deepEqual(result.telemetry, { density: 'expanded', inputSource: 'gamepad' });
+  const result = deriveHudPreferenceState({ settings, inputSource: 'mixed' });
+  assert.deepEqual(result.telemetry, { density: 'expanded', inputSource: 'mixed' });
   assert.equal('hiddenRoute' in result, false);
   assert.equal('hiddenRoute' in result.telemetry, false);
   assert.deepEqual(settings, { hudDensity: 'expanded', hiddenRoute: 'isle-secret' });
 });
 
-test('control hints change labels without exposing device identity', () => {
-  assert.match(controlHintForSource('keyboard'), /press H/i);
-  assert.doesNotMatch(controlHintForSource('gamepad'), /DualSense|Xbox|button array/i);
+test('control hints expose useful bounded controls without device identity', () => {
+  assert.match(controlHintForSource('keyboard'), /W\/S throttle/i);
+  assert.match(controlHintForSource('keyboard'), /E fly\/land/i);
+  assert.match(controlHintForSource('keyboard'), /F interact/i);
+  assert.match(controlHintForSource('keyboard'), /R recover/i);
+  assert.match(controlHintForSource('keyboard'), /H HUD/i);
+
+  assert.match(controlHintForSource('gamepad'), /left stick steer\/climb/i);
+  assert.match(controlHintForSource('gamepad'), /triggers throttle/i);
+  assert.match(controlHintForSource('gamepad'), /right stick look/i);
+  assert.match(controlHintForSource('gamepad'), /face buttons fly, interact, and recover/i);
+
+  assert.match(controlHintForSource('mixed'), /keyboard \+ gamepad active/i);
+  assert.match(controlHintForSource('mixed'), /H changes HUD density/i);
+
+  for (const source of ['keyboard', 'gamepad', 'mixed']) {
+    assert.doesNotMatch(controlHintForSource(source), /DualSense|Xbox|button array|region|route|coordinate/i);
+  }
 });
