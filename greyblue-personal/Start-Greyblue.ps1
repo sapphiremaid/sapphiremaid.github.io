@@ -1,6 +1,5 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$server = Join-Path $root 'serve-greyblue.mjs'
 $node = Get-Command node.exe -ErrorAction SilentlyContinue
 
 if (-not $node) {
@@ -14,4 +13,4 @@ if (-not $node) {
   exit 1
 }
 
-Start-Process -FilePath $node.Source -ArgumentList @($server) -WorkingDirectory $root -WindowStyle Hidden
+Start-Process -FilePath $node.Source -ArgumentList 'serve-greyblue.mjs' -WorkingDirectory $root -WindowStyle Hidden
