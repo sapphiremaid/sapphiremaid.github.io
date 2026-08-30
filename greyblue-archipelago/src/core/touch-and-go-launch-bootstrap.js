@@ -1,7 +1,8 @@
 import * as THREE from 'three';
+import { buildArchipelago } from '../world/archipelago.js';
 import {
-  armTouchAndGoLaunch,
   createTouchAndGoLaunchState,
+  deriveTouchAndGoShelfTouchdown,
   stepTouchAndGoLaunch,
   touchAndGoLaunchPublicState,
 } from './touch-and-go-launch.js';
@@ -18,6 +19,21 @@ let feedbackTimer = 0;
 let mistTimer = 0;
 let mistMultiplier = 1;
 let journalTimer = 0;
+let world = null;
+let worldSeed = null;
+
+function cleanId(value) {
+  return typeof value === 'string' && value.trim() ? value.trim().slice(0, 120) : '';
+}
+
+function getWorld(state) {
+  const seed = Number.isInteger(state?.seed) ? state.seed : 1337;
+  if (!world || worldSeed !== seed) {
+    worldSeed = seed;
+    world = buildArchipelago({ seed, count: 64, radius: 11000, minGap: 390 });
+  }
+  return world;
+}
 
 function crossingActive(state) {
   if (globalThis.__greyblueFamiliarCrossing?.active === true || state?.familiarCrossing?.active === true) return true;
@@ -27,24 +43,27 @@ function crossingActive(state) {
 }
 
 function buildFrame(state) {
-  const position = state?.position;
-  const verticalSpeed = Number.isFinite(state?.flight?.verticalSpeed)
-    ? Number(state.flight.verticalSpeed)
-    : Number.isFinite(state?.flight?.velocity?.y)
-      ? Number(state.flight.velocity.y)
-      : Number.isFinite(state?.velocity?.y)
-        ? Number(state.velocity.y)
-        : null;
+  const grounded = state?.collision?.grounded === true || state?.flight?.airborne === false;
   return Object.freeze({
     ready: state?.ready === true,
     paused: state?.paused === true,
-    airborne: state?.collision?.grounded === true ? false : state?.flight?.airborne === true,
+    airborne: !grounded && state?.flight?.airborne === true,
+    grounded,
     recoveryActive: state?.collision?.requiresRecovery === true || state?.flight?.mode === 'recovery',
     restorePublishing: Boolean(state?.restorePublishing || state?.explorationRestorePublishing),
     crossingActive: crossingActive(state),
-    position,
+    position: state?.position,
     speed: state?.flight?.speed,
-    verticalSpeed,
+  });
+}
+
+function touchdownFromState(state) {
+  return deriveTouchAndGoShelfTouchdown({
+    collision: state?.collision,
+    position: state?.position,
+    islands: getWorld(state)?.islands ?? [],
+    discoveredIslandIds: state?.discovered,
+    currentRegionId: cleanId(state?.currentRegion?.id),
   });
 }
 
@@ -85,7 +104,7 @@ function showListening(line) {
   listening.dataset.kind = 'touch-and-go-launch';
   delete listening.dataset.turn;
   delete listening.dataset.intensity;
-  if (titleTarget) titleTarget.textContent = 'The landing keeps moving.';
+  if (titleTarget) titleTarget.textContent = 'Two shelves, one flight.';
   if (statusTarget) statusTarget.textContent = line;
 }
 
@@ -94,7 +113,7 @@ function reducedMotion() {
 }
 
 function beginFeedback() {
-  const line = 'Claws leave the shelf and the same clean landing opens back into flight.';
+  const line = 'A brief landing, open air, then another island under your claws.';
   showListening(line);
   showJournal(line);
   mistMultiplier = 0.965;
@@ -105,7 +124,7 @@ function beginFeedback() {
   }, reducedMotion() ? 700 : 1600);
 
   globalThis.dispatchEvent?.(new CustomEvent('greyblue:touch-and-go-launch', {
-    detail: Object.freeze({ completed: true, phase: 'climb' }),
+    detail: Object.freeze({ completed: true, phase: 'complete' }),
   }));
   globalThis.dispatchEvent?.(new CustomEvent('greyblue:omen-listened', {
     detail: Object.freeze({ soundHook: 'omen-confluence', source: 'touch-and-go-launch' }),
@@ -128,25 +147,18 @@ function publishCompletion(publicState) {
 }
 
 function consumeState(state) {
-  if (launchState.armed !== true && launchState.completed !== true) {
-    globalThis.__greyblueTouchAndGoLaunch = touchAndGoLaunchPublicState(launchState);
-    return;
-  }
-  launchState = stepTouchAndGoLaunch({ state: launchState, frame: buildFrame(state) });
+  launchState = stepTouchAndGoLaunch({
+    state: launchState,
+    frame: buildFrame(state),
+    touchdown: touchdownFromState(state),
+  });
   const publicState = touchAndGoLaunchPublicState(launchState);
   globalThis.__greyblueTouchAndGoLaunch = publicState;
   publishCompletion(publicState);
 }
 
-function armFromTouchdown(event) {
-  const before = launchState;
-  launchState = armTouchAndGoLaunch(launchState, event?.detail);
-  if (launchState !== before) globalThis.__greyblueTouchAndGoLaunch = touchAndGoLaunchPublicState(launchState);
-}
-
 globalThis.__greyblueTouchAndGoLaunch = touchAndGoLaunchPublicState(launchState);
 globalThis.__greyblueTouchAndGoFeedback = touchAndGoFeedbackPublicState(feedbackState);
-globalThis.addEventListener?.('greyblue:precision-touchdown', armFromTouchdown);
 
 const priorDescriptor = Object.getOwnPropertyDescriptor(globalThis, '__greyblueState');
 const priorGet = typeof priorDescriptor?.get === 'function' ? priorDescriptor.get.bind(globalThis) : null;
@@ -184,7 +196,6 @@ const touchAndGoRender = function renderWithTouchAndGoAtmosphere(scene, camera) 
 THREE.WebGLRenderer.prototype.render = touchAndGoRender;
 
 globalThis.addEventListener?.('beforeunload', () => {
-  globalThis.removeEventListener?.('greyblue:precision-touchdown', armFromTouchdown);
   if (feedbackTimer) clearTimeout(feedbackTimer);
   if (mistTimer) clearTimeout(mistTimer);
   if (journalTimer) clearTimeout(journalTimer);
