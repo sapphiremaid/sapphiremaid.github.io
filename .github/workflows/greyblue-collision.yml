@@ -73,6 +73,18 @@ jobs:
           Copy-Item .bundle-deps/node_modules/three/build/* "$out/vendor/three/build"
           Copy-Item .bundle-deps/node_modules/three/examples/jsm "$out/vendor/three/examples/jsm" -Recurse
 
+          $nodeExe = (Get-Command node.exe -ErrorAction Stop).Source
+          $nodeRoot = Split-Path -Parent $nodeExe
+          $nodeLicense = Join-Path $nodeRoot 'LICENSE'
+          $runtimeVersion = (& $nodeExe --version | Select-Object -First 1).Trim()
+          if ($runtimeVersion -notmatch '^v22\.') { throw "Unexpected bundled Node.js version: $runtimeVersion" }
+          if (-not (Test-Path -LiteralPath $nodeLicense -PathType Leaf)) { throw "Node.js license is missing beside $nodeExe" }
+          New-Item -ItemType Directory -Path "$out/runtime" -Force | Out-Null
+          Copy-Item -LiteralPath $nodeExe -Destination "$out/runtime/node.exe"
+          Copy-Item -LiteralPath $nodeLicense -Destination "$out/runtime/LICENSE"
+          $packagedRuntimeVersion = (& "$out/runtime/node.exe" --version | Select-Object -First 1).Trim()
+          if ($packagedRuntimeVersion -ne $runtimeVersion) { throw "Packaged Node.js runtime version mismatch: $packagedRuntimeVersion" }
+
           $indexPath = "$out/greyblue-archipelago/index.html"
           $index = Get-Content $indexPath -Raw
           $index = $index.Replace('https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js', '../vendor/three/build/three.module.js')
@@ -88,6 +100,8 @@ jobs:
           if (-not (Test-Path "$out/vendor/three/examples/jsm/loaders/GLTFLoader.js")) {
             throw 'Vendored Three.js GLTFLoader is missing'
           }
+          if (-not (Test-Path -LiteralPath "$out/runtime/node.exe" -PathType Leaf)) { throw 'Bundled Node.js executable is missing' }
+          if (-not (Test-Path -LiteralPath "$out/runtime/LICENSE" -PathType Leaf)) { throw 'Bundled Node.js license is missing' }
 
           $manifest = [ordered]@{
             schemaVersion = 1
@@ -96,6 +110,8 @@ jobs:
             stabilizedBase = '540fbcd31003faf5d215d8a65c3821519a625121'
             threeVersion = '0.180.0'
             dragonModelCount = $models.Count
+            runtimeVersion = $packagedRuntimeVersion
+            runtimeBundled = $true
             networkBinding = '127.0.0.1'
             publicDeployment = $false
             builtAt = (Get-Date).ToUniversalTime().ToString('o')
@@ -108,7 +124,8 @@ jobs:
           $env:GREYBLUE_NO_OPEN = '1'
           $stdout = Join-Path $env:RUNNER_TEMP 'greyblue-server.out'
           $stderr = Join-Path $env:RUNNER_TEMP 'greyblue-server.err'
-          $process = Start-Process node -ArgumentList 'serve-greyblue.mjs' -WorkingDirectory 'dist/Greyblue' -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $bundledNode = (Resolve-Path 'dist/Greyblue/runtime/node.exe').Path
+          $process = Start-Process $bundledNode -ArgumentList 'serve-greyblue.mjs' -WorkingDirectory 'dist/Greyblue' -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
           try {
             $url = $null
             for ($i = 0; $i -lt 40; $i++) {
