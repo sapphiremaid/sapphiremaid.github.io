@@ -44,7 +44,7 @@ async function readServerUrl(child, label) {
 }
 
 async function stopChild(child) {
-  if (child.exitCode !== null) return
+  if (!child || child.exitCode !== null) return
   child.kill('SIGTERM')
   await once(child, 'exit')
 }
