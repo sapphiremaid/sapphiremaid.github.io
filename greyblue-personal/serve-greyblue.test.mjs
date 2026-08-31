@@ -83,6 +83,12 @@ try {
   const entry = await request(firstServer.port, '/greyblue-archipelago/')
   assert.equal(entry.statusCode, 200, 'server should remain usable after malformed URL')
 
+  const unrelatedSibling = await request(firstServer.port, '/LILITH_BOOTSTRAP.md')
+  assert.equal(unrelatedSibling.statusCode, 404, 'personal server must not expose unrelated repository files')
+
+  const dragonAsset = await request(firstServer.port, '/greyblue-dragon-flight-m1/dragon.glb')
+  assert.equal(dragonAsset.statusCode, 200, 'personal server must continue serving Greyblue model assets')
+
   const identity = await request(firstServer.port, '/__greyblue_instance__')
   assert.equal(identity.statusCode, 200)
   const identityPayload = JSON.parse(identity.body)
