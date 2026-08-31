@@ -32,7 +32,12 @@ const mime = new Map([
 ])
 
 function safePath(urlPath) {
-  const decoded = decodeURIComponent(urlPath.split('?')[0])
+  let decoded
+  try {
+    decoded = decodeURIComponent(urlPath.split('?')[0])
+  } catch {
+    return null
+  }
   const relative = normalize(decoded).replace(/^([/\\])+/, '')
   const candidate = resolve(root, relative)
   if (candidate !== root && !candidate.startsWith(`${root}${sep}`)) return null
