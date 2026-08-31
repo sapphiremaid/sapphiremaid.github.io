@@ -43,7 +43,7 @@ const mime = new Map([
   ['.wasm', 'application/wasm']
 ])
 
-const publicPathRoots = new Set(['greyblue-archipelago', 'greyblue-dragon-flight-m1'])
+const publicPathRoots = new Set(['greyblue-archipelago', 'greyblue-dragon-flight-m1', 'vendor'])
 
 function safePath(urlPath) {
   let decoded
