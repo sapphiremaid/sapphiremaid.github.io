@@ -57,6 +57,8 @@ async function closeServer(server) {
 
 let first
 let collisionFallback
+let collisionReuse
+let postCollisionReuse
 let blocker
 try {
   first = spawnGreyblue()
@@ -100,9 +102,34 @@ try {
   assert.notEqual(fallbackServer.port, firstServer.port, 'unrelated port owner must not be mistaken for Greyblue')
   assert.equal((await request(fallbackServer.port, '/greyblue-archipelago/')).statusCode, 200)
 
+  collisionReuse = spawnGreyblue()
+  const collisionReuseServer = await readServerUrl(collisionReuse, 'collision reuse Greyblue')
+  assert.equal(collisionReuseServer.url, fallbackServer.url, 'repeat launch during a preferred-port collision should reuse the stable fallback')
+  const [collisionReuseCode] = await Promise.race([
+    once(collisionReuse, 'exit'),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('collision reuse Greyblue launch did not exit')), 3000))
+  ])
+  assert.equal(collisionReuseCode, 0, 'collision reuse launch should exit after finding the stable fallback')
+  collisionReuse = null
+
+  await closeServer(blocker)
+  blocker = null
+
+  postCollisionReuse = spawnGreyblue()
+  const postCollisionServer = await readServerUrl(postCollisionReuse, 'post-collision reuse Greyblue')
+  assert.equal(postCollisionServer.url, fallbackServer.url, 'fallback should remain canonical after the preferred port becomes free')
+  const [postCollisionCode] = await Promise.race([
+    once(postCollisionReuse, 'exit'),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('post-collision Greyblue launch did not exit')), 3000))
+  ])
+  assert.equal(postCollisionCode, 0, 'post-collision reuse launch should exit after finding the stable fallback')
+  postCollisionReuse = null
+
   console.log('Greyblue personal server singleton regression: pass')
 } finally {
   await stopChild(first)
   await stopChild(collisionFallback)
+  await stopChild(collisionReuse)
+  await stopChild(postCollisionReuse)
   if (blocker?.listening) await closeServer(blocker)
 }
