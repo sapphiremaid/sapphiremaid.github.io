@@ -69,7 +69,7 @@ jobs:
 
           New-Item -ItemType Directory -Path "$out/vendor/three/build" -Force | Out-Null
           New-Item -ItemType Directory -Path "$out/vendor/three/examples" -Force | Out-Null
-          Copy-Item .bundle-deps/node_modules/three/build/three.module.js "$out/vendor/three/build/three.module.js"
+          Copy-Item .bundle-deps/node_modules/three/build/* "$out/vendor/three/build"
           Copy-Item .bundle-deps/node_modules/three/examples/jsm "$out/vendor/three/examples/jsm" -Recurse
 
           $indexPath = "$out/greyblue-archipelago/index.html"
@@ -81,8 +81,9 @@ jobs:
           if (Select-String -Path $indexPath -Pattern 'cdn.jsdelivr.net/npm/three@0.180.0' -Quiet) {
             throw 'Bundled Greyblue still references the Three.js CDN'
           }
-          $models = @(Get-ChildItem "$out/greyblue-dragon-flight-m1/assets" -Filter *.glb -Recurse)
+          $models = @(Get-ChildItem "$out/greyblue-dragon-flight-m1" -Filter *.glb -Recurse)
           if ($models.Count -lt 1) { throw 'No dragon GLB models were bundled' }
+          if (-not (Test-Path "$out/vendor/three/build/three.core.js")) { throw 'Vendored Three.js core module is missing' }
           if (-not (Test-Path "$out/vendor/three/examples/jsm/loaders/GLTFLoader.js")) {
             throw 'Vendored Three.js GLTFLoader is missing'
           }
