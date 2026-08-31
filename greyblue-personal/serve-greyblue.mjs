@@ -13,7 +13,15 @@ const root = existsSync(join(scriptDir, 'greyblue-archipelago', 'index.html'))
 const entryPath = '/greyblue-archipelago/'
 const instancePath = '/__greyblue_instance__'
 const instanceId = createHash('sha256').update(root.toLowerCase()).digest('hex').slice(0, 16)
-const preferredPort = 41000 + (Number.parseInt(instanceId.slice(0, 4), 16) % 20000)
+const portBase = 41000
+const portSpan = 20000
+const portStep = 7919
+const candidateCount = 16
+const preferredOffset = Number.parseInt(instanceId.slice(0, 4), 16) % portSpan
+const candidatePorts = Array.from(
+  { length: candidateCount },
+  (_, index) => portBase + ((preferredOffset + (index * portStep)) % portSpan)
+)
 
 if (!existsSync(join(root, 'greyblue-archipelago', 'index.html'))) {
   throw new Error('Greyblue source tree is missing: expected greyblue-archipelago/index.html')
@@ -130,24 +138,56 @@ const server = createServer(async (req, res) => {
   }
 })
 
+function listenOn(port) {
+  return new Promise((resolveListen, rejectListen) => {
+    const cleanup = () => {
+      server.off('listening', onListening)
+      server.off('error', onError)
+    }
+    const onListening = () => {
+      cleanup()
+      resolveListen(true)
+    }
+    const onError = (error) => {
+      cleanup()
+      if (error?.code === 'EADDRINUSE') {
+        resolveListen(false)
+        return
+      }
+      rejectListen(error)
+    }
+    server.once('listening', onListening)
+    server.once('error', onError)
+    server.listen(port, '127.0.0.1')
+  })
+}
+
+async function findExisting() {
+  const probes = await Promise.all(candidatePorts.map(async (port) => (
+    await probeExisting(port) ? port : null
+  )))
+  return probes.find((port) => port !== null) ?? null
+}
+
 async function start() {
-  if (await probeExisting(preferredPort)) {
-    announce(`http://127.0.0.1:${preferredPort}${entryPath}`)
+  const existingPort = await findExisting()
+  if (existingPort !== null) {
+    announce(`http://127.0.0.1:${existingPort}${entryPath}`)
     return
   }
 
-  server.once('error', (error) => {
-    if (error?.code === 'EADDRINUSE') {
-      server.listen(0, '127.0.0.1')
+  for (const port of candidatePorts) {
+    if (await listenOn(port)) {
+      announce(`http://127.0.0.1:${port}${entryPath}`)
       return
     }
-    console.error(`Greyblue server failed: ${error?.message || error}`)
-    process.exitCode = 1
-  })
-  server.listen(preferredPort, '127.0.0.1', () => {
-    const address = server.address()
-    announce(`http://127.0.0.1:${address.port}${entryPath}`)
-  })
+    if (await probeExisting(port)) {
+      announce(`http://127.0.0.1:${port}${entryPath}`)
+      return
+    }
+  }
+
+  throw new Error(`Greyblue could not reserve one of ${candidatePorts.length} stable loopback ports`)
 }
 
 await start()
