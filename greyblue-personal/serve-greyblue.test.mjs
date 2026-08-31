@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import http, { createServer } from 'node:http'
@@ -60,6 +61,8 @@ let collisionFallback
 let collisionReuse
 let postCollisionReuse
 let blocker
+let slowBlocker
+let slowFallback
 try {
   first = spawnGreyblue()
   const firstServer = await readServerUrl(first, 'first Greyblue')
@@ -125,11 +128,38 @@ try {
   assert.equal(postCollisionCode, 0, 'post-collision reuse launch should exit after finding the stable fallback')
   postCollisionReuse = null
 
+  await stopChild(collisionFallback)
+  collisionFallback = null
+
+  const instanceId = createHash('sha256').update(repoRoot.toLowerCase()).digest('hex').slice(0, 16)
+  const preferredPort = 41000 + (Number.parseInt(instanceId.slice(0, 4), 16) % 20000)
+  slowBlocker = createServer((_req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.write('{\"service\":\"unrelated\"')
+    const timer = setInterval(() => res.write(' '), 100)
+    res.on('close', () => clearInterval(timer))
+  })
+  await new Promise((resolveListen, reject) => {
+    slowBlocker.once('error', reject)
+    slowBlocker.listen(preferredPort, '127.0.0.1', resolveListen)
+  })
+
+  slowFallback = spawnGreyblue()
+  const slowFallbackServer = await readServerUrl(slowFallback, 'slow unrelated-service fallback Greyblue')
+  assert.notEqual(slowFallbackServer.port, preferredPort, 'a trickling unrelated service must not stall Greyblue startup')
+  assert.equal((await request(slowFallbackServer.port, '/greyblue-archipelago/')).statusCode, 200)
+  await stopChild(slowFallback)
+  slowFallback = null
+  await closeServer(slowBlocker)
+  slowBlocker = null
+
   console.log('Greyblue personal server singleton regression: pass')
 } finally {
   await stopChild(first)
   await stopChild(collisionFallback)
   await stopChild(collisionReuse)
   await stopChild(postCollisionReuse)
+  await stopChild(slowFallback)
   if (blocker?.listening) await closeServer(blocker)
+  if (slowBlocker?.listening) await closeServer(slowBlocker)
 }

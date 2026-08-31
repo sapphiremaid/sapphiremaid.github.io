@@ -82,12 +82,16 @@ function announce(url) {
 function probeExisting(port) {
   return new Promise((resolveProbe) => {
     let settled = false
+    let response = null
+    let deadline = null
     const finish = (value) => {
       if (settled) return
       settled = true
+      if (deadline) clearTimeout(deadline)
       resolveProbe(value)
     }
-    const request = httpGet({ host: '127.0.0.1', port, path: instancePath, timeout: 750 }, (response) => {
+    const request = httpGet({ host: '127.0.0.1', port, path: instancePath, timeout: 750 }, (incoming) => {
+      response = incoming
       let body = ''
       response.setEncoding('utf8')
       response.on('data', (chunk) => {
@@ -101,8 +105,18 @@ function probeExisting(port) {
           finish(false)
         }
       })
+      response.on('error', () => finish(false))
     })
-    request.on('timeout', () => request.destroy())
+    deadline = setTimeout(() => {
+      response?.destroy()
+      request.destroy()
+      finish(false)
+    }, 1000)
+    deadline.unref()
+    request.on('timeout', () => {
+      request.destroy()
+      finish(false)
+    })
     request.on('error', () => finish(false))
   })
 }
