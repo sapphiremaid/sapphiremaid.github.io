@@ -89,6 +89,9 @@ try {
   const dragonAsset = await request(firstServer.port, '/greyblue-dragon-flight-m1/dragon.glb')
   assert.equal(dragonAsset.statusCode, 200, 'personal server must continue serving Greyblue model assets')
 
+  const vendoredThree = await request(firstServer.port, '/vendor/three/build/three.module.js')
+  assert.equal(vendoredThree.statusCode, 200, 'packaged personal server must continue serving vendored Three.js')
+
   const identity = await request(firstServer.port, '/__greyblue_instance__')
   assert.equal(identity.statusCode, 200)
   const identityPayload = JSON.parse(identity.body)
