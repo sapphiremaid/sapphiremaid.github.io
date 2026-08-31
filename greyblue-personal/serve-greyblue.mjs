@@ -43,6 +43,8 @@ const mime = new Map([
   ['.wasm', 'application/wasm']
 ])
 
+const publicPathRoots = new Set(['greyblue-archipelago', 'greyblue-dragon-flight-m1'])
+
 function safePath(urlPath) {
   let decoded
   try {
@@ -51,6 +53,8 @@ function safePath(urlPath) {
     return null
   }
   const relative = normalize(decoded).replace(/^([/\\])+/, '')
+  const publicRoot = relative.split(sep, 1)[0].toLowerCase()
+  if (!publicPathRoots.has(publicRoot)) return null
   const candidate = resolve(root, relative)
   if (candidate !== root && !candidate.startsWith(`${root}${sep}`)) return null
   return candidate
