@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://sapphiremaid.github.io/nterm-zero-authority-canary/sitemap.xml
