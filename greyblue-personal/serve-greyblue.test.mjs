@@ -9,9 +9,9 @@ import { fileURLToPath } from 'node:url'
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-function request(port, path) {
+function request(port, path, method = 'GET') {
   return new Promise((resolveRequest, reject) => {
-    const req = http.request({ host: '127.0.0.1', port, path, method: 'GET' }, (res) => {
+    const req = http.request({ host: '127.0.0.1', port, path, method }, (res) => {
       let body = ''
       res.setEncoding('utf8')
       res.on('data', (chunk) => { body += chunk })
@@ -82,6 +82,13 @@ try {
 
   const entry = await request(firstServer.port, '/greyblue-archipelago/')
   assert.equal(entry.statusCode, 200, 'server should remain usable after malformed URL')
+
+  const headEntry = await request(firstServer.port, '/greyblue-archipelago/', 'HEAD')
+  assert.equal(headEntry.statusCode, 200, 'HEAD should expose static resource status')
+  assert.equal(headEntry.body, '', 'HEAD must not send a response body')
+
+  const postEntry = await request(firstServer.port, '/greyblue-archipelago/', 'POST')
+  assert.equal(postEntry.statusCode, 405, 'static server must reject non-read HTTP methods')
 
   const unrelatedSibling = await request(firstServer.port, '/LILITH_BOOTSTRAP.md')
   assert.equal(unrelatedSibling.statusCode, 404, 'personal server must not expose unrelated repository files')

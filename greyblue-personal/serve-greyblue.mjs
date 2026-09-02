@@ -126,13 +126,20 @@ function probeExisting(port) {
 }
 
 const server = createServer(async (req, res) => {
+  const method = req.method || 'GET'
+  if (method !== 'GET' && method !== 'HEAD') {
+    res.writeHead(405, { 'content-type': 'text/plain; charset=utf-8', allow: 'GET, HEAD' })
+    res.end('Method not allowed')
+    return
+  }
+  const isHead = method === 'HEAD'
   const urlPath = req.url || '/'
   if (urlPath.split('?')[0] === instancePath) {
     res.writeHead(200, {
       'content-type': 'application/json; charset=utf-8',
       'cache-control': 'no-store'
     })
-    res.end(JSON.stringify({ service: 'greyblue-personal', instanceId, entryPath }))
+    res.end(isHead ? undefined : JSON.stringify({ service: 'greyblue-personal', instanceId, entryPath }))
     return
   }
 
@@ -149,7 +156,7 @@ const server = createServer(async (req, res) => {
       'content-type': mime.get(extname(path).toLowerCase()) || 'application/octet-stream',
       'cache-control': 'no-store'
     })
-    res.end(body)
+    res.end(isHead ? undefined : body)
   } catch (error) {
     res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' })
     res.end(`Greyblue server error: ${error.message}`)
