@@ -23,7 +23,7 @@ WHAT THE LAUNCHER DOES
   - starts a local HTTP server bound only to 127.0.0.1
   - opens Greyblue in the default browser
   - never deploys or publishes the game
-  - shuts the local server down automatically after eight hours
+  - shuts the local server down automatically after eight hours of inactivity
 
 PACKAGED RUNTIME
   The portable private bundle includes Node.js 22.23.2 under runtime\ together with

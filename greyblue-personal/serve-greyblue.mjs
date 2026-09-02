@@ -17,6 +17,11 @@ const portBase = 41000
 const portSpan = 20000
 const portStep = 7919
 const candidateCount = 16
+const configuredIdleShutdownMs = Number.parseInt(process.env.GREYBLUE_IDLE_SHUTDOWN_MS || '', 10)
+const idleShutdownMs = Number.isFinite(configuredIdleShutdownMs) && configuredIdleShutdownMs >= 100
+  ? configuredIdleShutdownMs
+  : 8 * 60 * 60 * 1000
+let idleShutdown = null
 const preferredOffset = Number.parseInt(instanceId.slice(0, 4), 16) % portSpan
 const candidatePorts = Array.from(
   { length: candidateCount },
@@ -126,6 +131,7 @@ function probeExisting(port) {
 }
 
 const server = createServer(async (req, res) => {
+  armIdleShutdown()
   const method = req.method || 'GET'
   if (method !== 'GET' && method !== 'HEAD') {
     res.writeHead(405, { 'content-type': 'text/plain; charset=utf-8', allow: 'GET, HEAD' })
@@ -215,9 +221,18 @@ async function start() {
   throw new Error(`Greyblue could not reserve one of ${candidatePorts.length} stable loopback ports`)
 }
 
-await start()
+function shutdown() {
+  server.close(() => process.exit(0))
+}
 
-const shutdown = () => server.close(() => process.exit(0))
+function armIdleShutdown() {
+  if (idleShutdown) clearTimeout(idleShutdown)
+  idleShutdown = setTimeout(shutdown, idleShutdownMs)
+  idleShutdown.unref()
+}
+
+await start()
+armIdleShutdown()
+
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
-setTimeout(shutdown, 8 * 60 * 60 * 1000).unref()
