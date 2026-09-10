@@ -82,6 +82,26 @@ test('indexed candidates preserve the exact full-scan generated surface winner',
   }
 });
 
+test('repeated same-cell terrain sampling reuses one immutable candidate array', () => {
+  const overlap = [
+    { id: 'first', x: -20, z: 0, scale: 2, height: 90 },
+    { id: 'second', x: 30, z: 10, scale: 2, height: 120 },
+  ];
+  const index = createIslandSurfaceSpatialIndex(overlap, { cellSize: 128 });
+  const first = index.query(0, 0);
+  assert.equal(Object.isFrozen(first), true);
+  assert.deepEqual(first.map(({ id }) => id), ['first', 'second']);
+
+  const identities = new Set();
+  for (let query = 0; query < 10000; query += 1) identities.add(index.query(0, 0));
+  assert.equal(identities.size, 1, '10,000 repeated terrain queries should reuse one prebuilt candidate array');
+
+  const emptyIdentities = new Set();
+  for (let query = 0; query < 10000; query += 1) emptyIdentities.add(index.query(9000, -9000));
+  assert.equal(emptyIdentities.size, 1, 'empty terrain queries should reuse the shared immutable empty array');
+  assert.equal(Object.isFrozen(index.query(9000, -9000)), true);
+});
+
 test('malformed queries are neutral and callers are not mutated', () => {
   const before = JSON.stringify(islands);
   const index = createIslandSurfaceSpatialIndex(islands);
