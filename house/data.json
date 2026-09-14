@@ -1,0 +1,71 @@
+{
+  "schema": "house.truth-dashboard.v1",
+  "generated_at": "2026-09-14T01:36:03Z",
+  "overall": {
+    "status": "mixed",
+    "headline": "Core substrate is healthy; higher-level lanes still need fresh proof."
+  },
+  "systems": [
+    {
+      "name": "House Window",
+      "status": "healthy",
+      "value": "Continuity proved",
+      "note": "Exact attested browser binding passed the fail-closed acceptance canary.",
+      "proved_at": "2026-09-14T01:36:03Z"
+    },
+    {
+      "name": "KTerm",
+      "status": "healthy",
+      "value": "End-to-end command",
+      "note": "Local execution completed through the canonical router with a verified nonce.",
+      "proved_at": "2026-09-14T01:31:03Z"
+    },
+    {
+      "name": "Scheduler",
+      "status": "healthy",
+      "value": "Executive ticking",
+      "note": "At least one standing executive lane is active and the scheduler heartbeat is fresh.",
+      "proved_at": "2026-09-14T01:36:03Z"
+    },
+    {
+      "name": "Browser GPT",
+      "status": "degraded",
+      "value": "Partial confidence",
+      "note": "Browser substrate is reachable, but not every cognition/account lane has been freshly proved in this snapshot.",
+      "proved_at": "2026-09-13T16:00:20Z"
+    },
+    {
+      "name": "Visibility",
+      "status": "unknown",
+      "value": "No current probe",
+      "note": "No fresh end-to-end flash/focus/audio violation probe is wired into this public snapshot yet.",
+      "proved_at": null
+    },
+    {
+      "name": "Revenue",
+      "status": "unknown",
+      "value": "Not wired yet",
+      "note": "The dashboard does not yet ingest the House revenue ledger.",
+      "proved_at": null
+    }
+  ],
+  "incidents": [
+    {
+      "kind": "browser continuity",
+      "severity": "degraded",
+      "summary": "A stale relay-generation failure class was repaired and converted into an acceptance invariant.",
+      "at": "2026-09-14T01:35:40Z"
+    },
+    {
+      "kind": "false green",
+      "severity": "degraded",
+      "summary": "Component liveness had been able to remain green while user-visible integration outcomes were wrong.",
+      "at": "2026-09-14T01:31:03Z"
+    }
+  ],
+  "principles": [
+    "Green means a real postcondition was proved, not merely that a process exists.",
+    "Proof expires: stale green becomes unknown rather than quietly pretending to be current.",
+    "Recurring deterministic failures belong in canonical source, regression tests, and acceptance checks."
+  ]
+}
