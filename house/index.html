@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>House Truth Dashboard</title>
+  <style>
+    :root{--bg:#070a0f;--panel:#0e131b;--panel2:#111925;--ink:#ecf5ff;--muted:#8ea0b5;--line:#223044;--green:#5ef2a3;--yellow:#ffd86b;--red:#ff6b7a;--blue:#67b7ff;--violet:#d79bff;--shadow:0 22px 80px rgba(0,0,0,.35)}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 20% -10%,#10283c 0,transparent 35%),radial-gradient(circle at 90% 0,#21182f 0,transparent 30%),var(--bg);color:var(--ink);font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;min-height:100vh}
+    .wrap{max-width:1200px;margin:0 auto;padding:32px 20px 56px}.top{display:flex;gap:20px;justify-content:space-between;align-items:flex-start;margin-bottom:22px}.brand h1{font-size:clamp(28px,4vw,54px);line-height:.95;margin:0 0 12px;letter-spacing:-.045em}.brand .kicker{color:var(--blue);font-weight:800;letter-spacing:.16em;text-transform:uppercase;font-size:12px}.brand p{margin:0;color:var(--muted);max-width:760px}.overall{min-width:220px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.015));border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow)}
+    .state{display:inline-flex;align-items:center;gap:9px;text-transform:uppercase;font-size:12px;font-weight:900;letter-spacing:.12em}.dot{width:9px;height:9px;border-radius:50%;box-shadow:0 0 16px currentColor}.healthy{color:var(--green)}.degraded,.mixed{color:var(--yellow)}.failed{color:var(--red)}.unknown,.stale{color:var(--muted)}
+    .overall .headline{font-size:15px;margin-top:10px}.meta{margin-top:8px;color:var(--muted);font-size:12px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{background:linear-gradient(180deg,rgba(17,25,37,.96),rgba(12,17,25,.96));border:1px solid var(--line);border-radius:16px;padding:17px;min-height:170px;box-shadow:0 12px 45px rgba(0,0,0,.18)}.card-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.title{font-size:13px;color:#b9c8d8;text-transform:uppercase;letter-spacing:.1em;font-weight:800}.value{font-size:26px;font-weight:900;margin:18px 0 8px;letter-spacing:-.04em}.note{color:var(--muted);font-size:13px}.fresh{margin-top:14px;font-size:11px;color:#6f8398}.section{margin-top:28px}.section h2{font-size:13px;text-transform:uppercase;letter-spacing:.15em;color:#a9b9ca;margin:0 0 12px}.incident{display:grid;grid-template-columns:115px 1fr auto;gap:14px;align-items:start;padding:13px 15px;border:1px solid var(--line);border-radius:12px;background:rgba(14,19,27,.78);margin-bottom:9px}.incident .kind{font-weight:800}.incident .when{color:var(--muted);font-size:12px}.principles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.principle{border-left:2px solid var(--blue);padding:10px 12px;background:rgba(103,183,255,.045);color:#bdcada}.footer{margin-top:32px;color:#6f8398;font-size:11px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}.error{padding:18px;border:1px solid rgba(255,107,122,.35);background:rgba(255,107,122,.07);border-radius:14px;color:#ffc5cb}.pill{font-size:10px;border:1px solid currentColor;border-radius:999px;padding:3px 7px;text-transform:uppercase;font-weight:800;letter-spacing:.08em}
+    @media(max-width:850px){.grid,.principles{grid-template-columns:1fr 1fr}.top{flex-direction:column}.overall{width:100%}}@media(max-width:560px){.grid,.principles{grid-template-columns:1fr}.incident{grid-template-columns:1fr}.wrap{padding:22px 14px 40px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="top">
+      <div class="brand"><div class="kicker">House / truth surface</div><h1>Is she actually working?</h1><p>Outcome-level health, not process theater. Green means the relevant postcondition was proved. Old proof decays.</p></div>
+      <div class="overall" id="overall"><span class="state unknown"><span class="dot"></span>loading</span><div class="headline">Reading current snapshot…</div></div>
+    </div>
+    <div id="content"></div>
+    <div class="footer"><span>Public-safe snapshot only. Sensitive operational details are intentionally omitted.</span><span id="refresh">auto-refresh: 30s</span></div>
+  </main>
+<script>
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ago=iso=>{if(!iso)return 'never proved';const d=(Date.now()-new Date(iso).getTime())/1000;if(d<0)return 'clock skew';if(d<60)return `${Math.floor(d)}s ago`;if(d<3600)return `${Math.floor(d/60)}m ago`;if(d<86400)return `${Math.floor(d/3600)}h ago`;return `${Math.floor(d/86400)}d ago`};
+function statusClass(s){return ['healthy','degraded','mixed','failed','unknown','stale'].includes(s)?s:'unknown'}
+function render(d){
+ const o=d.overall||{};document.getElementById('overall').innerHTML=`<span class="state ${statusClass(o.status)}"><span class="dot"></span>${esc(o.status||'unknown')}</span><div class="headline">${esc(o.headline||'No summary')}</div><div class="meta">snapshot ${esc(ago(d.generated_at))}</div>`;
+ const cards=(d.systems||[]).map(x=>`<article class="card"><div class="card-top"><div class="title">${esc(x.name)}</div><span class="pill ${statusClass(x.status)}">${esc(x.status)}</span></div><div class="value">${esc(x.value||x.status)}</div><div class="note">${esc(x.note||'')}</div><div class="fresh">proved ${esc(ago(x.proved_at))}</div></article>`).join('');
+ const incidents=(d.incidents||[]).map(x=>`<div class="incident"><div class="kind ${statusClass(x.severity)}">${esc(x.kind)}</div><div>${esc(x.summary)}</div><div class="when">${esc(ago(x.at))}</div></div>`).join('')||'<div class="note">No public-safe incidents in this snapshot.</div>';
+ const principles=(d.principles||[]).map(x=>`<div class="principle">${esc(x)}</div>`).join('');
+ document.getElementById('content').innerHTML=`<section class="grid">${cards}</section><section class="section"><h2>Recent incident classes</h2>${incidents}</section><section class="section"><h2>What green is allowed to mean</h2><div class="principles">${principles}</div></section>`;
+}
+async function load(){try{const r=await fetch(`data.json?t=${Date.now()}`,{cache:'no-store'});if(!r.ok)throw new Error(`HTTP ${r.status}`);render(await r.json())}catch(e){document.getElementById('content').innerHTML=`<div class="error">Snapshot unavailable: ${esc(e.message)}</div>`}}
+load();setInterval(load,30000);
+</script>
+</body>
+</html>
