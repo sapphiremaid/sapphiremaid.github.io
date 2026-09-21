@@ -1,15 +1,19 @@
 # House truth dashboard
 
-Public-safe static cockpit for the House.
+Public GitHub Pages shell for Katherine's House dashboard.
 
-The UI reads `data.json` and intentionally exposes only coarse health facts. Never publish credentials, account identifiers, machine paths, process IDs, private repository details, private task text, or personal data here.
+The public repository contains **UI only**. It does not contain House snapshots, credentials, machine paths, task text, account identifiers, or a cached "last known" operational state.
 
-## Semantics
+At runtime, the page reads the loopback-only House truth bridge at `http://127.0.0.1:43117/v2/dashboard`. The bridge is bound to localhost and permits browser reads only from the exact Pages origin `https://sapphiremaid.github.io`.
 
-- `healthy`: the named user-visible postcondition was freshly proved.
-- `degraded`: useful capability exists but part of the intended outcome is unproved or failing.
-- `failed`: the postcondition was freshly proved false.
-- `unknown`: no sufficiently fresh proof exists.
-- `stale`: formerly proved state whose freshness window has expired.
+## Truth contract
 
-The producer of `data.json` should obtain facts from the owning live system and decay stale facts rather than carrying old green state forward.
+- A numeric zero may be shown only after the named live owner was successfully observed and returned an empty set/count.
+- Missing or failed evidence is not coerced to zero.
+- Stale evidence is not presented as current.
+- Derived states are labeled derived.
+- Unknown project/domain state stays Unknown.
+- If the local truth feed fails, the UI clears current values instead of displaying cached values as current.
+- The Proof view exposes source, observation time, freshness window, blind spots, and the raw current receipt.
+
+Canonical collector and UI source live in the private `sapphiremaid/house-cockpit` repository. This public directory is only the deployable static shell.
