@@ -182,6 +182,13 @@ async function load(){
   try{
     var req=new Request(ENDPOINT,{method:"GET",mode:"cors",cache:"no-store",targetAddressSpace:"loopback",signal:controller.signal});
     var res=await fetch(req);
+    if(res.status===503){
+      var warming=await res.json().catch(function(){return {};});
+      if(warming && warming.error==="warming_up"){
+        q("#freshness").textContent="Connecting";
+        return;
+      }
+    }
     if(!res.ok) throw new Error("HTTP "+res.status);
     var next=await res.json();
     if(!next || next.ok!==true || next.schema!=="house.atlas-dashboard.v1") throw new Error("unexpected data schema");
