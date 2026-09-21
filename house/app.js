@@ -8,7 +8,7 @@ if(suppliedKey){ try{ localStorage.setItem("house-view-key",suppliedKey); }catch
 let VIEW_KEY=suppliedKey;
 if(!VIEW_KEY){ try{ VIEW_KEY=localStorage.getItem("house-view-key")||""; }catch(_e){} }
 const USE_RELAY = !IS_LOCAL && !REMOTE_BASE && !!VIEW_KEY;
-const ENDPOINT = IS_LOCAL ? "/v2/dashboard" : (REMOTE_BASE ? REMOTE_BASE+"/v2/dashboard" : (USE_RELAY ? RELAY+"/api/house/data" : "http://127.0.0.1:43117/v2/dashboard"));
+const ENDPOINT = IS_LOCAL ? "/v2/dashboard" : (REMOTE_BASE ? REMOTE_BASE+"/v2/dashboard" : (USE_RELAY ? RELAY+"/api/house/data/"+encodeURIComponent(VIEW_KEY) : "http://127.0.0.1:43117/v2/dashboard"));
 const POLL_MS = 5000;
 let data = null;
 let currentView = "overview";
@@ -191,7 +191,7 @@ async function load(){
   var timer=setTimeout(function(){controller.abort();},12000);
   try{
     var requestOptions={method:"GET",cache:"no-store",signal:controller.signal};
-    if(USE_RELAY){ requestOptions.mode="cors"; requestOptions.headers={Authorization:"Bearer "+VIEW_KEY}; }
+    if(USE_RELAY){ requestOptions.mode="cors"; }
     else if(!IS_LOCAL && !REMOTE_BASE){ requestOptions.mode="cors"; requestOptions.targetAddressSpace="loopback"; }
     var req=new Request(ENDPOINT,requestOptions);
     var res=await fetch(req);
