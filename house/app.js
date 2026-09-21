@@ -178,7 +178,7 @@ function renderProof(){
 async function load(){
   q("#refresh").disabled=true;
   var controller=new AbortController();
-  var timer=setTimeout(function(){controller.abort();},4500);
+  var timer=setTimeout(function(){controller.abort();},12000);
   try{
     var req=new Request(ENDPOINT,{method:"GET",mode:"cors",cache:"no-store",targetAddressSpace:"loopback",signal:controller.signal});
     var res=await fetch(req);
