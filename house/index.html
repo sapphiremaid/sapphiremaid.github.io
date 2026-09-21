@@ -6,12 +6,12 @@
   <meta name="color-scheme" content="dark">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' http://127.0.0.1:43117 https://house-dashboard-relay.lisatolsky.workers.dev; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>House</title>
-  <link rel="stylesheet" href="./styles.css?v=20260921-1106">
+  <link rel="stylesheet" href="./styles.css?v=20260921-1122">
 </head>
 <body>
   <div class="app">
     <aside class="rail">
-      <nav id="nav">
+      <nav id="nav" class="desktop-nav" aria-label="House views">
         <button class="nav active" data-view="overview">Overview</button>
         <button class="nav" data-view="agents">Agents</button>
         <button class="nav" data-view="projects">Projects</button>
@@ -25,10 +25,18 @@
         <div><h1 id="view-title">House</h1><p id="view-subtitle">What needs attention and what changed.</p></div>
         <div class="top-actions"><div id="freshness" class="freshness">Connecting</div><button id="refresh" class="refresh">Refresh</button></div>
       </header>
+      <nav class="mobile-nav" aria-label="House views">
+        <button class="nav active" data-view="overview">Overview</button>
+        <button class="nav" data-view="agents">Agents</button>
+        <button class="nav" data-view="projects">Projects</button>
+        <button class="nav" data-view="schedules">Schedules</button>
+        <button class="nav" data-view="activity">Activity</button>
+        <button class="nav" data-view="proof">Sources</button>
+      </nav>
       <div id="global-banner" class="banner hidden"></div>
       <section id="content"><div class="loading-state">Connecting to House data...</div></section>
     </main>
   </div>
-  <script src="./app.js?v=20260921-1106"></script>
+  <script src="./app.js?v=20260921-1122"></script>
 </body>
 </html>

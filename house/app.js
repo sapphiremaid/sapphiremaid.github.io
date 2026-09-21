@@ -110,30 +110,37 @@ function groupedAttention(items){
 function attentionRow(a){
   return '<div class="attention-item"><span class="sev '+esc(a.severity)+'"></span><div><div class="item-title">'+esc(a.title)+'</div><div class="item-sub">'+esc(a.summary)+'</div></div><div class="item-meta">'+esc(ageText(a.observed_at))+'</div></div>';
 }
+function humanizeGate(g){
+  var id=String(g.id||"");
+  if(id==="microduck-mcneel-paid-trial-contact-20260910") return {title:"Old McNeel outreach approval",action:"Send the already-drafted paid-trial inquiry, or drop it."};
+  return {title:String(g.title||g.summary||"Approval needed"),action:String(g.required_action||"")};
+}
+function gateRow(g){
+  var h=humanizeGate(g);
+  return '<div class="gate-row"><div class="gate-copy"><div class="gate-title">'+esc(h.title)+'</div><div class="gate-action">'+esc(h.action)+'</div></div><div class="gate-age">'+esc(ageText(g.updated_at||g.created_at))+'</div></div>';
+}
 function renderOverview(){
-  var attention=groupedAttention(data.attention||[]), claims=data.claims||[];
+  var attention=groupedAttention((data.attention||[]).filter(function(a){return !(a.kind==="observed-count" && /need Katherine/i.test(String(a.title||"")));}));
+  var claims=data.claims||[];
   var coverage=(data.coverage&&data.coverage.blind_spots)||[];
-  var pending=(data.human_gates&&Number.isFinite(data.human_gates.count))?data.human_gates.count:"\u2014";
-  var working=Array.isArray(data.agents)?data.agents.filter(function(a){return a.activity&&a.activity.state==="working";}).length:"\u2014";
-  var gaps=coverage.length;
-  var first=attention.slice(0,6).map(attentionRow).join("");
-  var rest=attention.slice(6).map(attentionRow).join("");
-  var att=first||'<div class="empty">Nothing currently needs attention.</div>';
-  if(rest) att+='<details class="more-list"><summary>Show all '+attention.length+'</summary>'+rest+'</details>';
-  var cov=coverage.length?coverage.map(function(x){
-    return '<div class="rowitem"><span class="sev warning"></span><div><div class="item-title">'+esc(x.title)+'</div><div class="item-sub">'+esc(x.reason)+'</div></div></div>';
-  }).join(""):'<div class="empty">No known monitoring gaps.</div>';
-  var cs=claims.map(function(c){
-    return '<div class="claim '+esc(c.verdict)+'"><span class="claim-title">'+esc(c.title)+'</span><p>'+esc(c.summary)+'</p><span class="verdict">'+esc(String(c.verdict))+'</span><small>observed '+esc(ageText(c.proved_at))+'</small></div>';
-  }).join("");
-  return '<div class="summary-strip">'+
-    '<div class="summary-stat '+(Number(pending)>0?"needs":"")+'"><span>Needs Katherine</span><strong>'+esc(pending)+'</strong></div>'+
-    '<div class="summary-stat"><span>Working now</span><strong>'+esc(working)+'</strong></div>'+
-    '<div class="summary-stat '+(gaps>0?"gap":"")+'"><span>Monitoring gaps</span><strong>'+esc(gaps)+'</strong></div>'+
-    '</div>'+
-    '<section class="section primary-section"><div class="section-head"><h2>Needs attention</h2><span>'+attention.length+' current</span></div><div>'+att+'</div></section>'+
-    '<section class="section"><div class="section-head"><h2>Monitoring gaps</h2><span>'+coverage.length+'</span></div><div>'+cov+'</div></section>'+
-    '<section class="section"><div class="section-head"><h2>Recent checks</h2><span>'+claims.length+'</span></div><div class="claims">'+cs+'</div></section>';
+  var approvals=(data.human_gates&&Array.isArray(data.human_gates.items))?data.human_gates.items:[];
+  var deferred=(data.human_gates&&Array.isArray(data.human_gates.deferred_items))?data.human_gates.deferred_items:[];
+  var working=Array.isArray(data.agents)?data.agents.filter(function(a){return a.activity&&a.activity.state==="working";}).length:0;
+  var urgentHtml=approvals.length?'<section class="needs-you" id="needs-you"><div class="section-head"><h2>Needs you</h2><span>'+approvals.length+'</span></div><div class="gate-list">'+approvals.map(gateRow).join("")+'</div></section>':'';
+  var deferredHtml=deferred.length?'<details class="fold section"><summary><span>Approvals waiting</span><small>'+deferred.length+'</small></summary><div class="fold-body gate-list">'+deferred.map(gateRow).join("")+'</div></details>':'';
+  var first=attention.slice(0,5).map(attentionRow).join("");
+  var rest=attention.slice(5).map(attentionRow).join("");
+  var att=first||'<div class="empty">Nothing else currently needs attention.</div>';
+  if(rest){var moreCount=(rest.match(/attention-item/g)||[]).length;att+='<details class="more-list"><summary>Show '+moreCount+' more</summary>'+rest+'</details>';}
+  var cov=coverage.length?coverage.map(function(x){return '<div class="rowitem"><span class="sev warning"></span><div><div class="item-title">'+esc(x.title)+'</div><div class="item-sub">'+esc(x.reason)+'</div></div></div>';}).join(""):'<div class="empty">No known monitoring gaps.</div>';
+  var pass=claims.filter(function(c){return c.verdict==="pass";}).length;
+  var warn=claims.filter(function(c){return c.verdict==="warn" || c.verdict==="fail";}).length;
+  var unknown=claims.length-pass-warn;
+  var cs=claims.map(function(c){return '<div class="claim '+esc(c.verdict)+'"><span class="claim-title">'+esc(c.title)+'</span><p>'+esc(c.summary)+'</p><span class="verdict">'+esc(String(c.verdict))+'</span><small>'+esc(ageText(c.proved_at))+'</small></div>';}).join("");
+  return '<div class="pulse"><span><strong>'+esc(working)+'</strong> working</span><span><strong>'+esc(coverage.length)+'</strong> monitoring gaps</span></div>'+urgentHtml+
+    '<section class="section primary-section"><div class="section-head"><h2>Attention</h2><span>'+attention.length+'</span></div><div>'+att+'</div></section>'+deferredHtml+
+    '<details class="fold section"><summary><span>Monitoring gaps</span><small>'+coverage.length+'</small></summary><div class="fold-body">'+cov+'</div></details>'+
+    '<details class="fold section"><summary><span>System checks</span><small>'+pass+' pass / '+warn+' warn / '+unknown+' unknown</small></summary><div class="fold-body claims">'+cs+'</div></details>';
 }
 function renderAgents(){
   if(!Array.isArray(data.agents)) return unknownBox("Agent inventory unknown","The Mecha agents source did not produce a current list.");
@@ -225,7 +232,7 @@ function schedulePoll(){
   if(pollTimer) clearTimeout(pollTimer);
   pollTimer=setTimeout(function(){load().finally(schedulePoll);},POLL_MS);
 }
-q("#nav").addEventListener("click",function(e){var b=e.target.closest("[data-view]");if(!b)return;currentView=b.dataset.view;render();});
+document.querySelectorAll("nav[aria-label=\"House views\"]").forEach(function(nav){nav.addEventListener("click",function(e){var b=e.target.closest("[data-view]");if(!b)return;currentView=b.dataset.view;render();window.scrollTo({top:0,behavior:"auto"});});});
 q("#refresh").addEventListener("click",function(){load().finally(schedulePoll);});
 load().finally(schedulePoll);
 document.addEventListener("visibilitychange",function(){
