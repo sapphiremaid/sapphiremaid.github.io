@@ -5,13 +5,12 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="color-scheme" content="dark">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' http://127.0.0.1:43117; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'">
-  <title>House Overview</title>
+  <title>House</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
   <div class="app">
     <aside class="rail">
-      <div class="brand"><div class="sigil">H</div><div><strong>HOUSE</strong><span>overview</span></div></div>
       <nav id="nav">
         <button class="nav active" data-view="overview">Overview</button>
         <button class="nav" data-view="agents">Agents</button>
@@ -20,12 +19,12 @@
         <button class="nav" data-view="activity">Activity</button>
         <button class="nav" data-view="proof">Sources</button>
       </nav>
-      <div class="rail-foot"><div id="link-state" class="link-state unknown"><span></span>CONNECTING</div></div>
+      <div class="rail-foot"><div id="link-state" class="link-state unknown"><span></span>Connecting</div></div>
     </aside>
     <main>
       <header class="topbar">
-        <div><div class="eyebrow">HOUSE / READ-ONLY</div><h1 id="view-title">House</h1><p id="view-subtitle">Systems, agents, projects, and recent work.</p></div>
-        <div class="top-actions"><div id="freshness" class="freshness">connecting to local House data</div><button id="refresh" class="refresh">Refresh</button></div>
+        <div><h1 id="view-title">House</h1><p id="view-subtitle">What needs attention and what changed.</p></div>
+        <div class="top-actions"><div id="freshness" class="freshness">Connecting</div><button id="refresh" class="refresh">Refresh</button></div>
       </header>
       <div id="global-banner" class="banner hidden"></div>
       <section id="content"></section>
