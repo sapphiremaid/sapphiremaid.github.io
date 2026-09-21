@@ -156,3 +156,7 @@ details.panel summary::-webkit-details-marker{display:none}
   h1{font-size:32px}
   .top-actions{justify-content:space-between}
 }
+.local-launch{margin-top:34px;border-top:1px solid var(--line);padding:22px 0;color:var(--muted);display:flex;align-items:baseline;justify-content:space-between;gap:24px}
+.local-launch a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--faint);padding-bottom:2px}
+.local-launch a:hover{border-color:var(--text)}
+@media(max-width:560px){.local-launch{display:block}.local-launch a{display:inline-block;margin-top:12px}}

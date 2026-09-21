@@ -1,4 +1,6 @@
-const ENDPOINT = "http://127.0.0.1:43117/v2/dashboard";
+const LOCAL_DASHBOARD = "http://127.0.0.1:43117/";
+const IS_LOCAL = location.hostname==="127.0.0.1" || location.hostname==="localhost";
+const ENDPOINT = IS_LOCAL ? "/v2/dashboard" : "http://127.0.0.1:43117/v2/dashboard";
 const POLL_MS = 5000;
 let data = null;
 let currentView = "overview";
@@ -180,7 +182,9 @@ async function load(){
   var controller=new AbortController();
   var timer=setTimeout(function(){controller.abort();},12000);
   try{
-    var req=new Request(ENDPOINT,{method:"GET",mode:"cors",cache:"no-store",targetAddressSpace:"loopback",signal:controller.signal});
+    var requestOptions={method:"GET",cache:"no-store",signal:controller.signal};
+    if(!IS_LOCAL){ requestOptions.mode="cors"; requestOptions.targetAddressSpace="loopback"; }
+    var req=new Request(ENDPOINT,requestOptions);
     var res=await fetch(req);
     if(res.status===503){
       var warming=await res.json().catch(function(){return {};});
@@ -197,13 +201,27 @@ async function load(){
     setBanner(null); render();
   }catch(err){
     data=null; lastError=String((err&&err.name==="AbortError")?"local data timed out":((err&&err.message)||err));
-    q("#freshness").textContent="No current data";
-    setBanner("House data is unavailable. Current values are hidden until the local link recovers.");
-    render();
+    q("#freshness").textContent=IS_LOCAL?"No current data":"Local";
+    if(IS_LOCAL){
+      setBanner("House data is unavailable. Current values are hidden until the local link recovers.");
+      render();
+    }else{
+      setBanner(null);
+      q("#content").innerHTML='<div class="local-launch"><div>Live House runs on this workstation.</div><a href="'+LOCAL_DASHBOARD+'">Open live House</a></div>';
+    }
   }finally{ clearTimeout(timer); q("#refresh").disabled=false; }
 }
+var pollTimer=null;
+function schedulePoll(){
+  if(pollTimer) clearTimeout(pollTimer);
+  pollTimer=setTimeout(function(){load().finally(schedulePoll);},POLL_MS);
+}
 q("#nav").addEventListener("click",function(e){var b=e.target.closest("[data-view]");if(!b)return;currentView=b.dataset.view;render();});
-q("#refresh").addEventListener("click",load);
-load();
-setInterval(load,POLL_MS);
-document.addEventListener("visibilitychange",function(){if(!document.hidden)load();});
+q("#refresh").addEventListener("click",function(){load().finally(schedulePoll);});
+load().finally(schedulePoll);
+document.addEventListener("visibilitychange",function(){
+  if(!document.hidden){
+    if(pollTimer) clearTimeout(pollTimer);
+    load().finally(schedulePoll);
+  }
+});
