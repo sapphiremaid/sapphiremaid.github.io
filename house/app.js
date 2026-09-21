@@ -39,9 +39,6 @@ function factCard(label,key){
   var note=f.kind==="derived"?" \u00b7 derived":"";
   return '<div class="metric '+esc(state)+'"><div class="label">'+esc(label)+'</div><div class="value">'+esc(shown)+'</div><div class="state">'+esc(stateLabel+note)+'</div></div>';
 }
-function setLink(state,text){
-  var el=q("#link-state"); el.className="link-state "+state; el.innerHTML="<span></span>"+esc(text);
-}
 function setBanner(message){
   var b=q("#global-banner");
   if(!message){ b.classList.add("hidden"); b.textContent=""; return; }
@@ -180,21 +177,23 @@ function renderProof(){
 }
 async function load(){
   q("#refresh").disabled=true;
+  var controller=new AbortController();
+  var timer=setTimeout(function(){controller.abort();},4500);
   try{
-    var req=new Request(ENDPOINT,{method:"GET",mode:"cors",cache:"no-store",targetAddressSpace:"loopback"});
+    var req=new Request(ENDPOINT,{method:"GET",mode:"cors",cache:"no-store",targetAddressSpace:"loopback",signal:controller.signal});
     var res=await fetch(req);
     if(!res.ok) throw new Error("HTTP "+res.status);
     var next=await res.json();
     if(!next || next.ok!==true || next.schema!=="house.atlas-dashboard.v1") throw new Error("unexpected data schema");
-    data=next; lastError=null; setLink("live","Live");
+    data=next; lastError=null;
     q("#freshness").textContent="Updated "+ageText(next.generated_at);
     setBanner(null); render();
   }catch(err){
-    data=null; lastError=String((err&&err.message)||err); setLink("bad","Unavailable");
+    data=null; lastError=String((err&&err.name==="AbortError")?"local data timed out":((err&&err.message)||err));
     q("#freshness").textContent="No current data";
     setBanner("House data is unavailable. Current values are hidden until the local link recovers.");
     render();
-  }finally{ q("#refresh").disabled=false; }
+  }finally{ clearTimeout(timer); q("#refresh").disabled=false; }
 }
 q("#nav").addEventListener("click",function(e){var b=e.target.closest("[data-view]");if(!b)return;currentView=b.dataset.view;render();});
 q("#refresh").addEventListener("click",load);
