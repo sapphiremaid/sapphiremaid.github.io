@@ -1,6 +1,14 @@
 const LOCAL_DASHBOARD = "http://127.0.0.1:43117/";
+const RELAY = "https://house-dashboard-relay.lisatolsky.workers.dev";
 const IS_LOCAL = location.hostname==="127.0.0.1" || location.hostname==="localhost";
-const ENDPOINT = IS_LOCAL ? "/v2/dashboard" : "http://127.0.0.1:43117/v2/dashboard";
+const REMOTE_MATCH = location.pathname.match(/^\/r\/([^/]+)(?:\/|$)/);
+const REMOTE_BASE = REMOTE_MATCH ? "/r/"+REMOTE_MATCH[1] : null;
+let suppliedKey = location.hash ? decodeURIComponent(location.hash.slice(1)) : "";
+if(suppliedKey){ try{ localStorage.setItem("house-view-key",suppliedKey); }catch(_e){} history.replaceState(null,"",location.pathname+location.search); }
+let VIEW_KEY=suppliedKey;
+if(!VIEW_KEY){ try{ VIEW_KEY=localStorage.getItem("house-view-key")||""; }catch(_e){} }
+const USE_RELAY = !IS_LOCAL && !REMOTE_BASE && !!VIEW_KEY;
+const ENDPOINT = IS_LOCAL ? "/v2/dashboard" : (REMOTE_BASE ? REMOTE_BASE+"/v2/dashboard" : (USE_RELAY ? RELAY+"/api/house/data" : "http://127.0.0.1:43117/v2/dashboard"));
 const POLL_MS = 5000;
 let data = null;
 let currentView = "overview";
@@ -183,7 +191,8 @@ async function load(){
   var timer=setTimeout(function(){controller.abort();},12000);
   try{
     var requestOptions={method:"GET",cache:"no-store",signal:controller.signal};
-    if(!IS_LOCAL){ requestOptions.mode="cors"; requestOptions.targetAddressSpace="loopback"; }
+    if(USE_RELAY){ requestOptions.mode="cors"; requestOptions.headers={Authorization:"Bearer "+VIEW_KEY}; }
+    else if(!IS_LOCAL && !REMOTE_BASE){ requestOptions.mode="cors"; requestOptions.targetAddressSpace="loopback"; }
     var req=new Request(ENDPOINT,requestOptions);
     var res=await fetch(req);
     if(res.status===503){
@@ -202,12 +211,12 @@ async function load(){
   }catch(err){
     data=null; lastError=String((err&&err.name==="AbortError")?"local data timed out":((err&&err.message)||err));
     q("#freshness").textContent=IS_LOCAL?"No current data":"Local";
-    if(IS_LOCAL){
-      setBanner("House data is unavailable. Current values are hidden until the local link recovers.");
+    if(IS_LOCAL || REMOTE_BASE || USE_RELAY){
+      setBanner("House data is unavailable. Current values are hidden until the live link recovers.");
       render();
     }else{
       setBanner(null);
-      q("#content").innerHTML='<div class="local-launch"><div>Live House runs on this workstation.</div><a href="'+LOCAL_DASHBOARD+'">Open live House</a></div>';
+      q("#content").innerHTML='<div class="local-launch"><div>This browser does not have the private House access key.</div></div>';
     }
   }finally{ clearTimeout(timer); q("#refresh").disabled=false; }
 }
