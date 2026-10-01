@@ -63,9 +63,11 @@ Repository:
 
 This public bootstrap is a discovery/recovery layer. Local Basic Memory remains canonical for mutable policy and private persistent state unless the runtime policy explicitly changes that architecture.
 
-## Current local execution substrate
+## Current execution routing
 
-The browser-terminal is the intended general local execution substrate during migration away from bespoke KT Bus operations.
+If an agent is already running on Katherine's workstation and has a suitable integrated/native terminal with direct access to the target, use that terminal for ordinary local shell, filesystem, repository, process, and service work. Do not wrap local work through browser-terminal/KTerm merely because it is reachable.
+
+Browser-terminal/KTerm is the intended remote/fallback workstation substrate for ChatGPT and other off-workstation clients, for agents that lack suitable direct local terminal access, and for capabilities specifically exposed through the Katherine Gateway/KTerm boundary.
 
 ### Public HTTPS front-end (use this from ChatGPT and any off-workstation client)
 
@@ -103,7 +105,7 @@ Canonical policy path reported by its health endpoint:
 
 `C:\Users\stran\OneDrive\Agent Vault\Basic Memory\system\Lilith Runtime Policy.md`
 
-The loopback endpoint is authenticated with a distinct local bearer token at `%LOCALAPPDATA%\BrowserTerminal\token`. Prefer the loopback endpoint when running on-workstation; prefer the public HTTPS front-end otherwise. Do not expose either bearer token unnecessarily.
+The loopback endpoint is authenticated with a distinct local bearer token at `%LOCALAPPDATA%\BrowserTerminal\token`. Use the loopback endpoint on-workstation only when the agent lacks a suitable integrated/native terminal or specifically needs a Gateway/KTerm capability; do not prefer it over direct local terminal access for ordinary workstation work. Off-workstation clients should use the public HTTPS front-end. Do not expose either bearer token unnecessarily.
 
 The target architecture is one stable, implementation-neutral Katherine Gateway in front of general execution, dynamic capabilities, durable jobs, direct filesystem/OS control, authenticated headless browser control, independent recovery, and policy get/update/history/rollback.
 
